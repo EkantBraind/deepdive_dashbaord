@@ -131,7 +131,7 @@ export function ConversationsPage() {
   const { sessions, loading, error } = useConversations({ dateRange })
 
   const [minMessages, setMinMessages] = useState(0)
-  const [humanOnly, setHumanOnly] = useState(false)
+  const [chatFilter, setChatFilter] = useState<'all' | 'replied'>('all')
   const [selectedSession, setSelectedSession] = useState<SessionWithPreview | null>(null)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [chatLoading, setChatLoading] = useState(false)
@@ -152,9 +152,9 @@ export function ConversationsPage() {
       )
     }
     if (minMessages > 0) filtered = filtered.filter((s) => s.messageCount >= minMessages)
-    if (humanOnly) filtered = filtered.filter((s) => s.hasHumanMessage)
+    if (chatFilter === 'replied') filtered = filtered.filter((s) => s.hasHumanMessage)
     return filtered
-  }, [sessions, searchQuery, minMessages, humanOnly])
+  }, [sessions, searchQuery, minMessages, chatFilter])
 
   const handleSessionClick = useCallback(async (session: SessionWithPreview) => {
     setSelectedSession(session)
@@ -219,28 +219,33 @@ export function ConversationsPage() {
         </div>
 
         {/* Filters */}
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-[#F0F2F5] border-b border-[#E9EDEF] shrink-0">
-          <button
-            onClick={() => setHumanOnly((v) => !v)}
-            className={cn(
-              'text-[12px] px-3 py-0.5 rounded-full font-medium border transition-colors',
-              humanOnly
-                ? 'bg-[#25D366] text-white border-[#25D366]'
-                : 'bg-white text-[#667781] border-[#E9EDEF] hover:border-[#667781]'
-            )}
-          >
-            Human only
-          </button>
+        <div className="flex flex-col bg-[#F0F2F5] border-b border-[#E9EDEF] shrink-0">
+          <div className="flex items-center gap-2 px-3 py-1.5">
+            {(['all', 'replied'] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => setChatFilter(f)}
+                className={cn(
+                  'text-[12px] px-3 py-0.5 rounded-full font-medium border transition-colors',
+                  chatFilter === f
+                    ? 'bg-[#25D366] text-white border-[#25D366]'
+                    : 'bg-white text-[#667781] border-[#E9EDEF] hover:border-[#667781]'
+                )}
+              >
+                {f === 'all' ? 'All chats' : 'Prospects replied'}
+              </button>
+            ))}
+          </div>
           {maxMessages > 0 && (
-            <div className="flex items-center gap-1.5 ml-auto">
-              <span className="text-[11px] text-[#667781] whitespace-nowrap">Min: {minMessages}</span>
+            <div className="flex flex-col gap-0.5 px-3 pb-2">
+              <span className="text-[11px] text-[#667781]">Min messages: {minMessages}</span>
               <input
                 type="range"
                 min={0}
                 max={maxMessages}
                 value={minMessages}
                 onChange={(e) => setMinMessages(Number(e.target.value))}
-                className="w-20 h-1 accent-[#25D366] cursor-pointer"
+                className="w-full h-2 accent-[#25D366] cursor-pointer"
               />
             </div>
           )}
