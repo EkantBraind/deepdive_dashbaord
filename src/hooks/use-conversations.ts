@@ -12,6 +12,8 @@ export interface SessionWithPreview {
   created_at: string | null
 }
 
+export type OriginFilter = 'all' | 'web' | 'whatsapp' | 'outreach' | 'chatbot'
+
 interface UseConversationsOptions {
   dateRange?: DateRange
 }

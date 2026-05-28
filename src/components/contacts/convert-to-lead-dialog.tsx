@@ -141,7 +141,7 @@ export function ConvertToLeadDialog({
               </SelectTrigger>
               <SelectContent>
                 {statuses.map((s) => (
-                  <SelectItem key={s.id} value={s.name || String(s.id)}>
+                  <SelectItem key={s.name} value={s.name}>
                     {s.label || s.name}
                   </SelectItem>
                 ))}

@@ -129,7 +129,7 @@ interface CampaignDistributionProps {
   totalLeads: number
 }
 
-function CampaignDistribution({ leadsByCampaign, totalLeads }: CampaignDistributionProps) {
+function CampaignDistribution({ leadsByCampaign }: CampaignDistributionProps) {
   const sorted = Object.entries(leadsByCampaign).sort((a, b) => b[1] - a[1])
 
   if (sorted.length === 0) {

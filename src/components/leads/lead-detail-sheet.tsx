@@ -241,7 +241,7 @@ export function LeadDetailSheet({
               <Section title="Conversation Preview">
                 <ConversationPreview
                   conversations={convData?.conversations || []}
-                  capturePoint={convData?.capturePoint || null}
+                  capturePoint={null}
                   loading={convLoading}
                   error={convError}
                 />
@@ -352,7 +352,7 @@ export function LeadDetailSheet({
         open={fullConvOpen}
         onOpenChange={setFullConvOpen}
         conversations={convData?.conversations || []}
-        capturePoint={convData?.capturePoint || null}
+        capturePoint={null}
         loading={convLoading}
         error={convError}
       />
