@@ -2,9 +2,6 @@ import { formatDistanceToNow } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
 import {
   Users,
-  UserPlus,
-  MessageSquare,
-  TrendingUp,
   Activity,
   Phone,
   CheckCircle2,
@@ -40,34 +37,10 @@ export function DashboardPage() {
     <div className="space-y-6">
       {/* Stat Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Total Leads"
-          value={stats.totalLeads}
-          icon={<UserPlus className="size-5" />}
-          iconBgColor="bg-blue-500/10"
-          iconColor="text-blue-500"
-        />
-        <StatCard
-          title="Total Conversations"
-          value={stats.totalConversations}
-          icon={<MessageSquare className="size-5" />}
-          iconBgColor="bg-cyan-500/10"
-          iconColor="text-cyan-500"
-        />
-        <StatCard
-          title="Pre-Call / Booked"
-          value={stats.bookedLeads}
-          icon={<CheckCircle2 className="size-5" />}
-          iconBgColor="bg-green-500/10"
-          iconColor="text-green-500"
-        />
-        <StatCard
-          title="Booking Rate"
-          value={`${conversionRate}%`}
-          icon={<TrendingUp className="size-5" />}
-          iconBgColor="bg-purple-500/10"
-          iconColor="text-purple-500"
-        />
+        <StatCard title="Total Leads" value={stats.totalLeads} />
+        <StatCard title="Total Conversations" value={stats.totalConversations} />
+        <StatCard title="Pre-Call / Booked" value={stats.bookedLeads} />
+        <StatCard title="Booking Rate" value={`${conversionRate}%`} />
       </div>
 
       {/* Charts Row */}
@@ -119,7 +92,7 @@ export function DashboardPage() {
           <CardHeader>
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
               <Phone className="size-5 text-blue-500" />
-              Need to Call
+              Awaiting Contact
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -134,24 +107,18 @@ export function DashboardPage() {
 interface StatCardProps {
   title: string
   value: number | string
-  icon: React.ReactNode
-  iconBgColor: string
-  iconColor: string
 }
 
-function StatCard({ title, value, icon, iconBgColor, iconColor }: StatCardProps) {
+function StatCard({ title, value }: StatCardProps) {
   return (
     <Card>
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between">
-          <div className={`flex size-12 items-center justify-center rounded-xl ${iconBgColor}`}>
-            <span className={iconColor}>{icon}</span>
-          </div>
-        </div>
-        <div className="mt-4">
-          <p className="text-3xl font-bold">{value}</p>
-          <p className="text-sm text-muted-foreground">{title}</p>
-        </div>
+      <CardContent className="p-5">
+        <p className="text-3xl font-bold" style={{ color: '#0A8754' }}>
+          {value}
+        </p>
+        <p className="text-sm mt-1" style={{ color: '#7a8fa0' }}>
+          {title}
+        </p>
       </CardContent>
     </Card>
   )
@@ -174,29 +141,90 @@ function CampaignDistribution({ leadsByCampaign, totalLeads }: CampaignDistribut
     )
   }
 
-  return (
-    <div className="space-y-4">
-      {sorted.map(([campaign, count]) => {
-        const config = CAMPAIGN_CONFIG[campaign]
-        const color = config?.colour || '#6b7280'
-        const label = config?.label || campaign
-        const percentage = totalLeads > 0 ? Math.round((count / totalLeads) * 100) : 0
+  const cx = 100, cy = 100, outerR = 88, innerR = 56
+  const total = sorted.reduce((sum, [, c]) => sum + c, 0)
 
-        return (
-          <div key={campaign} className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="font-medium">{label}</span>
-              <span className="text-muted-foreground">{count} ({percentage}%)</span>
-            </div>
-            <div className="h-2 rounded-full bg-muted overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-500"
-                style={{ width: `${percentage}%`, backgroundColor: color }}
-              />
-            </div>
+  // Build donut slices
+  let startAngle = -Math.PI / 2
+  const slices = sorted.map(([campaign, count]) => {
+    const config = CAMPAIGN_CONFIG[campaign]
+    const color = config?.colour || '#6b7280'
+    const label = config?.label || campaign
+    const fraction = total > 0 ? count / total : 0
+    const sweep = fraction * 2 * Math.PI
+
+    let path: string
+    if (fraction >= 0.9999) {
+      // Full circle — SVG arcs can't represent 360°, use two halves
+      path = [
+        `M ${cx} ${cy - outerR}`,
+        `A ${outerR} ${outerR} 0 1 1 ${cx} ${cy + outerR}`,
+        `A ${outerR} ${outerR} 0 1 1 ${cx} ${cy - outerR}`,
+        `M ${cx} ${cy - innerR}`,
+        `A ${innerR} ${innerR} 0 1 0 ${cx} ${cy + innerR}`,
+        `A ${innerR} ${innerR} 0 1 0 ${cx} ${cy - innerR}`,
+        'Z',
+      ].join(' ')
+    } else {
+      const large = sweep > Math.PI ? 1 : 0
+      const ox1 = cx + outerR * Math.cos(startAngle)
+      const oy1 = cy + outerR * Math.sin(startAngle)
+      const ox2 = cx + outerR * Math.cos(startAngle + sweep)
+      const oy2 = cy + outerR * Math.sin(startAngle + sweep)
+      const ix1 = cx + innerR * Math.cos(startAngle + sweep)
+      const iy1 = cy + innerR * Math.sin(startAngle + sweep)
+      const ix2 = cx + innerR * Math.cos(startAngle)
+      const iy2 = cy + innerR * Math.sin(startAngle)
+      path = [
+        `M ${ox1} ${oy1}`,
+        `A ${outerR} ${outerR} 0 ${large} 1 ${ox2} ${oy2}`,
+        `L ${ix1} ${iy1}`,
+        `A ${innerR} ${innerR} 0 ${large} 0 ${ix2} ${iy2}`,
+        'Z',
+      ].join(' ')
+    }
+
+    startAngle += sweep
+    return { campaign, count, color, label, fraction, path }
+  })
+
+  return (
+    <div className="flex items-center gap-6">
+      {/* Donut chart */}
+      <svg width="200" height="200" viewBox="0 0 200 200" className="shrink-0">
+        {slices.map(({ campaign, path, color }) => (
+          <path
+            key={campaign}
+            d={path}
+            fill={color}
+            stroke="white"
+            strokeWidth="2"
+            style={{ transition: 'opacity 0.15s' }}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+          />
+        ))}
+        <text x="100" y="94" textAnchor="middle" fontSize="30" fontWeight="700" fill="#1a1a1a">
+          {total}
+        </text>
+        <text x="100" y="113" textAnchor="middle" fontSize="12" fill="#7a8fa0">
+          leads
+        </text>
+      </svg>
+
+      {/* Legend */}
+      <div className="flex-1 space-y-3 min-w-0">
+        {slices.map(({ campaign, label, color, count, fraction }) => (
+          <div key={campaign} className="flex items-center gap-2">
+            <div className="size-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+            <span className="text-sm truncate flex-1 text-foreground">{label}</span>
+            <span className="text-sm font-semibold shrink-0">{count}</span>
+            <span className="text-xs text-muted-foreground w-9 text-right shrink-0">
+              {Math.round(fraction * 100)}%
+            </span>
           </div>
-        )
-      })}
+        ))}
+      </div>
     </div>
   )
 }
@@ -351,12 +379,9 @@ function DashboardSkeleton() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <Card key={i}>
-            <CardContent className="p-6">
-              <Skeleton className="size-12 rounded-xl" />
-              <div className="mt-4 space-y-2">
-                <Skeleton className="h-8 w-20" />
-                <Skeleton className="h-4 w-24" />
-              </div>
+            <CardContent className="p-5">
+              <Skeleton className="h-8 w-16 mb-2" />
+              <Skeleton className="h-4 w-24" />
             </CardContent>
           </Card>
         ))}

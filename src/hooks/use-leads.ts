@@ -10,7 +10,7 @@ interface UseLeadsOptions {
 export function useLeads({ dateRange }: UseLeadsOptions = {}) {
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
-  const [updating, setUpdating] = useState(false)
+
   const [error, setError] = useState<Error | null>(null)
 
   const fetchLeads = useCallback(async () => {
@@ -102,30 +102,10 @@ export function useLeads({ dateRange }: UseLeadsOptions = {}) {
     }
   }, [dateRange?.from?.toISOString(), dateRange?.to?.toISOString()])
 
-  const updateLeadCampaign = async (leadId: string, campaign: string) => {
-    try {
-      setUpdating(true)
-      const { error: updateError } = await supabase
-        .from('leads')
-        .update({ campaign })
-        .eq('id', leadId)
-
-      if (updateError) throw updateError
-    } finally {
-      setUpdating(false)
-    }
-  }
-
-  // Alias for components that still pass onStatusChange
-  const updateLeadStatus = updateLeadCampaign
-
   return {
     leads,
     loading,
-    updating,
     error,
     refetch: fetchLeads,
-    updateLeadCampaign,
-    updateLeadStatus,
   }
 }

@@ -283,20 +283,20 @@ export interface Campaign {
 }
 
 export const CAMPAIGN_CONFIG: Record<string, { label: string; colour: string }> = {
-  need_to_call:      { label: 'Need to Call',      colour: '#3b82f6' },
-  welcome:           { label: 'Welcome',            colour: '#10b981' },
+  need_to_call:      { label: 'Awaiting Contact',      colour: '#3b82f6' },
+  welcome:           { label: 'Ivy Outreach',            colour: '#10b981' },
   not_right_now:     { label: 'Not Right Now',      colour: '#6b7280' },
-  reactivation:      { label: 'Reactivation',       colour: '#ef4444' },
+  reactivation:      { label: 'Follow Up',       colour: '#ef4444' },
   pre_call_same_day: { label: 'Pre-Call (Same Day)', colour: '#f97316' },
   pre_call_2_4:      { label: 'Pre-Call (2-4)',     colour: '#f59e0b' },
   pre_call_5_plus:   { label: 'Pre-Call (5+)',      colour: '#8b5cf6' },
 }
 
 export const CAMPAIGNS: Campaign[] = [
-  { name: 'need_to_call',   label: 'Need to Call',    colour: '#3b82f6' },
-  { name: 'welcome',        label: 'Welcome',          colour: '#10b981' },
+  { name: 'need_to_call',   label: 'Awaiting Contact',    colour: '#3b82f6' },
+  { name: 'welcome',        label: 'Ivy Outreach',          colour: '#10b981' },
   { name: 'not_right_now',  label: 'Not Right Now',    colour: '#6b7280' },
-  { name: 'reactivation',   label: 'Reactivation',     colour: '#ef4444' },
+  { name: 'reactivation',   label: 'Follow Up',     colour: '#ef4444' },
 ]
 
 export const PRECALL_CAMPAIGNS: Campaign[] = [

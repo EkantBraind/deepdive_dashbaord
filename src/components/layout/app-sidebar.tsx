@@ -13,20 +13,21 @@ import {
 } from '@/components/ui/sidebar'
 import { Button } from '@/components/ui/button'
 import { env } from '@/config/env'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
-  LayoutDashboard,
-  Users,
-  Contact,
-  MessageSquare,
-  Settings,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react'
+  faThLarge,
+  faFilter,
+  faComments,
+
+  faCog,
+} from '@fortawesome/free-solid-svg-icons'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 const menuItems = [
-  { title: 'Dashboard', icon: LayoutDashboard, href: '/' },
-  { title: 'Pipeline', icon: Users, href: '/leads' },
-  { title: 'Conversations', icon: MessageSquare, href: '/conversations' },
+  { title: 'Dashboard', icon: faThLarge, href: '/' },
+  { title: 'Leads', icon: faFilter, href: '/leads' },
+  { title: 'Conversations', icon: faComments, href: '/conversations' },
+
 ]
 
 function SidebarCollapseButton() {
@@ -48,33 +49,19 @@ function SidebarCollapseButton() {
   )
 }
 
-function SidebarLogo() {
-  return (
-    <img
-      src="https://cm4-production-assets.s3.amazonaws.com/1757399731604-chatgpt-image-sep-9-2025-09_40_33-am.png"
-      alt="InsureAI Logo"
-      className="size-10 shrink-0 rounded-lg object-contain"
-    />
-  )
-}
-
 export function AppSidebar() {
   const location = useLocation()
-  const { toggleSidebar } = useSidebar()
 
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="p-3">
         <div className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center">
-          <button onClick={toggleSidebar} className="cursor-pointer shrink-0">
-            <SidebarLogo />
-          </button>
           <div className="flex-1 overflow-hidden group-data-[collapsible=icon]:hidden">
-            <h1 className="text-lg font-semibold text-sidebar-foreground whitespace-nowrap truncate">
+            <h1 className="text-lg font-bold whitespace-nowrap truncate" style={{ color: '#1a1a1a' }}>
               {env.app.name}
             </h1>
-            <p className="text-xs text-sidebar-foreground/60 whitespace-nowrap truncate">
-              Broker Intelligence
+            <p className="text-xs whitespace-nowrap truncate" style={{ color: '#7a8fa0' }}>
+              Powered by Ivy
             </p>
           </div>
           <div className="group-data-[collapsible=icon]:hidden">
@@ -94,7 +81,7 @@ export function AppSidebar() {
                     isActive={location.pathname === item.href}
                   >
                     <Link to={item.href}>
-                      <item.icon className="size-5" />
+                      <FontAwesomeIcon icon={item.icon} className="size-5" />
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
@@ -113,7 +100,7 @@ export function AppSidebar() {
               isActive={location.pathname === '/settings'}
             >
               <Link to="/settings">
-                <Settings className="size-5" />
+                <FontAwesomeIcon icon={faCog} className="size-5" />
                 <span>Settings</span>
               </Link>
             </SidebarMenuButton>

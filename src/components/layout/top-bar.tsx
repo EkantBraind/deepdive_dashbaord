@@ -26,7 +26,7 @@ import { useSearch } from '@/contexts/search-context'
 
 const pageTitles: Record<string, string> = {
   '/': 'Dashboard',
-  '/contacts': 'Contacts',
+
   '/leads': 'Leads',
   '/conversations': 'Conversations',
   '/analytics': 'Analytics',
@@ -42,7 +42,7 @@ export function TopBar() {
 
   const pageTitle = pageTitles[location.pathname] || 'Dashboard'
   const showDateFilter = location.pathname !== '/settings'
-  const showSearch = ['/contacts', '/conversations', '/leads'].includes(location.pathname)
+  const showSearch = ['/leads'].includes(location.pathname)
 
   const displayName = authUser?.user_metadata?.display_name || authUser?.user_metadata?.full_name || authUser?.email || 'User'
   const initials = displayName
@@ -54,7 +54,7 @@ export function TopBar() {
   const avatar = authUser?.user_metadata?.avatar_url || ''
 
   return (
-    <header className="flex h-16 items-center border-b bg-muted/30 px-6 md:px-8">
+    <header className="flex h-16 items-center border-b bg-white px-6 md:px-8">
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
@@ -162,9 +162,9 @@ export function TopBar() {
             <p className="text-sm font-medium leading-none">{displayName}</p>
             <p className="text-xs text-muted-foreground mt-0.5">{authUser?.email}</p>
           </div>
-          <Avatar className="size-9 bg-orange-100 text-orange-600">
+          <Avatar className="size-9">
             <AvatarImage src={avatar} alt={displayName} />
-            <AvatarFallback className="bg-orange-100 text-orange-600 font-medium">
+            <AvatarFallback className="font-bold text-sm" style={{ backgroundColor: '#0A8754', color: '#ffffff' }}>
               {initials}
             </AvatarFallback>
           </Avatar>

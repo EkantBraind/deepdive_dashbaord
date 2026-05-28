@@ -1,9 +1,18 @@
 import { formatDistanceToNow } from 'date-fns'
-import { Phone, Calendar, Users } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
+import { Skeleton } from '@/components/ui/skeleton'
 import type { Lead, Campaign } from '@/types/database'
+
+const AVATAR_COLORS = ['#0A8754', '#3B82F6', '#F59E0B', '#8B5CF6', '#0EAD6A', '#F44336']
+
+function getAvatarColor(name: string) {
+  const hash = name.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length]
+}
+
+function getInitials(name: string) {
+  return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
+}
 
 interface LeadsKanbanProps {
   leads: Lead[]
@@ -13,20 +22,16 @@ interface LeadsKanbanProps {
 }
 
 export function LeadsKanban({ leads, statuses, loading, onLeadClick }: LeadsKanbanProps) {
-  const getLeadsByCampaign = (campaignName: string) => {
-    return leads.filter((lead) => lead.campaign === campaignName)
-  }
-
   if (loading) {
     return (
       <ScrollArea className="w-full">
-        <div className="flex gap-4 pb-4">
+        <div style={{ display: 'flex', gap: 14, paddingBottom: 16 }}>
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="w-[320px] shrink-0 flex flex-col gap-2">
-              <Skeleton className="h-10 w-full rounded-lg" />
-              <div className="space-y-3 p-3 rounded-lg border border-muted">
+            <div key={i} style={{ minWidth: 200, flex: 1 }}>
+              <Skeleton style={{ height: 38, borderRadius: 10, marginBottom: 10 }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {Array.from({ length: 3 }).map((_, j) => (
-                  <Skeleton key={j} className="h-32 w-full rounded-lg" />
+                  <Skeleton key={j} style={{ height: 80, borderRadius: 10 }} />
                 ))}
               </div>
             </div>
@@ -39,70 +44,22 @@ export function LeadsKanban({ leads, statuses, loading, onLeadClick }: LeadsKanb
 
   if (statuses.length === 0) {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="flex size-14 items-center justify-center rounded-full bg-muted mb-4">
-            <Users className="size-7 text-muted-foreground" />
-          </div>
-          <h3 className="font-semibold mb-1">No campaigns configured</h3>
-          <p className="text-sm text-muted-foreground">
-            No campaigns found in the pipeline configuration.
-          </p>
-        </CardContent>
-      </Card>
+      <p style={{ fontSize: 14, color: '#7a8fa0' }}>No stages configured</p>
     )
   }
 
   return (
     <ScrollArea className="w-full">
-      <div className="flex gap-4 pb-4">
-        {statuses.map((campaign) => {
-          const campaignLeads = getLeadsByCampaign(campaign.name)
-          const color = campaign.colour
-
+      <div style={{ display: 'flex', gap: 14, paddingBottom: 16 }}>
+        {statuses.map((status) => {
+          const statusLeads = leads.filter((l) => l.campaign === status.name)
           return (
-            <div
-              key={campaign.name}
-              className="w-[320px] shrink-0 flex flex-col gap-2"
-            >
-              <div
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg border"
-                style={{ backgroundColor: `${color}45`, borderColor: `${color}60` }}
-              >
-                <span className="font-semibold text-sm" style={{ color }}>
-                  {campaign.label}
-                </span>
-                <span
-                  className="flex size-5 items-center justify-center rounded-full text-xs font-medium text-white"
-                  style={{ backgroundColor: color }}
-                >
-                  {campaignLeads.length}
-                </span>
-              </div>
-
-              <div
-                className="flex-1 pl-3 pr-1 py-3 rounded-lg border"
-                style={{ backgroundColor: `${color}10`, borderColor: `${color}50` }}
-              >
-                <ScrollArea className="h-[calc(100vh-310px)] pr-2">
-                  <div className="space-y-3">
-                    {campaignLeads.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
-                        <p className="text-sm">No leads</p>
-                      </div>
-                    ) : (
-                      campaignLeads.map((lead) => (
-                        <LeadCard
-                          key={lead.id}
-                          lead={lead}
-                          onClick={() => onLeadClick?.(lead)}
-                        />
-                      ))
-                    )}
-                  </div>
-                </ScrollArea>
-              </div>
-            </div>
+            <KanbanColumn
+              key={status.name}
+              status={status}
+              leads={statusLeads}
+              onLeadClick={onLeadClick}
+            />
           )
         })}
       </div>
@@ -111,51 +68,130 @@ export function LeadsKanban({ leads, statuses, loading, onLeadClick }: LeadsKanb
   )
 }
 
-interface LeadCardProps {
+interface KanbanColumnProps {
+  status: Campaign
+  leads: Lead[]
+  onLeadClick?: (lead: Lead) => void
+}
+
+function KanbanColumn({ status, leads, onLeadClick }: KanbanColumnProps) {
+  return (
+    <div
+      style={{
+        minWidth: 200,
+        flex: 1,
+        background: 'white',
+        borderRadius: 14,
+        padding: 14,
+        border: '1px solid #e0e6ed',
+      }}
+    >
+      {/* Column header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>
+          {status.label}
+        </span>
+        <span
+          style={{
+            width: 22,
+            height: 22,
+            borderRadius: '50%',
+            background: '#f5f7fa',
+            fontSize: 11,
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#7a8fa0',
+          }}
+        >
+          {leads.length}
+        </span>
+      </div>
+
+      {/* Cards */}
+      <ScrollArea style={{ height: 'calc(100vh - 310px)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingRight: 4 }}>
+          {leads.length === 0 ? (
+            <p style={{ fontSize: 12, color: '#b0bec5', textAlign: 'center', padding: '20px 0' }}>
+              No leads
+            </p>
+          ) : (
+            leads.map((lead) => (
+              <KanbanCard key={lead.id} lead={lead} onClick={() => onLeadClick?.(lead)} />
+            ))
+          )}
+        </div>
+      </ScrollArea>
+    </div>
+  )
+}
+
+interface KanbanCardProps {
   lead: Lead
   onClick?: () => void
 }
 
-function LeadCard({ lead, onClick }: LeadCardProps) {
-  const name = [lead.first_name, lead.last_name].filter(Boolean).join(' ') || 'Unknown'
+function KanbanCard({ lead, onClick }: KanbanCardProps) {
+  const name = [lead.first_name, lead.last_name].filter(Boolean).join(' ') || lead.email || 'Unknown'
+  const avatarColor = getAvatarColor(name)
+  const initials = getInitials(name)
 
   return (
-    <Card
-      className="cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] rounded-lg border shadow-sm"
+    <div
       onClick={onClick}
+      style={{
+        background: '#f9fafb',
+        borderRadius: 10,
+        padding: 12,
+        cursor: 'pointer',
+        transition: 'all 0.2s',
+        border: '1px solid transparent',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = '#0A8754'
+        e.currentTarget.style.background = '#f0fdf4'
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = 'transparent'
+        e.currentTarget.style.background = '#f9fafb'
+      }}
     >
-      <CardContent className="px-5 py-3">
-        <div className="mb-2">
-          <h4 className="font-semibold text-sm truncate">{name}</h4>
-          {lead.email && (
-            <p className="text-xs text-muted-foreground truncate">{lead.email}</p>
-          )}
+      {/* Avatar + name row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <div
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: '50%',
+            background: avatarColor,
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 11,
+            fontWeight: 700,
+            flexShrink: 0,
+          }}
+        >
+          {initials}
         </div>
-
-        <div className="space-y-1.5 mt-3">
-          {lead.phone ? (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Phone className="size-3 fill-current" />
-              <span>{lead.phone}</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Phone className="size-3 fill-current" />
-              <span>Not provided</span>
-            </div>
-          )}
-
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Calendar className="size-3 fill-current" />
-            <span>
-              {lead.created_at
-                ? formatDistanceToNow(new Date(lead.created_at), { addSuffix: true })
-                : 'Unknown'}
-            </span>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontWeight: 600, fontSize: 13, color: '#1a1a1a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {name}
           </div>
-
+          <div style={{ fontSize: 11, color: '#7a8fa0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {lead.email || lead.phone || '—'}
+          </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+
+      {/* Date */}
+      {lead.created_at && (
+        <div style={{ fontSize: 11, color: '#b0bec5', marginTop: 4 }}>
+          {formatDistanceToNow(new Date(lead.created_at), { addSuffix: true })}
+        </div>
+      )}
+    </div>
   )
 }

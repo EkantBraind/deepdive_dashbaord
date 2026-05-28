@@ -6,7 +6,7 @@ import { DateFilterProvider } from '@/contexts/date-filter-context'
 import { SearchProvider } from '@/contexts/search-context'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { DashboardPage } from '@/pages/dashboard'
-import { ContactsPage } from '@/pages/contacts'
+
 import { LeadsPage } from '@/pages/leads'
 import { ConversationsPage } from '@/pages/conversations'
 import { SettingsPage } from '@/pages/settings'
@@ -46,7 +46,7 @@ function App() {
                     <DashboardLayout>
                       <Routes>
                         <Route path="/" element={<DashboardPage />} />
-                        <Route path="/contacts" element={<ContactsPage />} />
+
                         <Route path="/leads" element={<LeadsPage />} />
                         <Route path="/conversations" element={<ConversationsPage />} />
                         <Route path="/settings" element={<SettingsPage />} />

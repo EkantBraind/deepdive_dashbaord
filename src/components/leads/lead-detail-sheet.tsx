@@ -1,43 +1,41 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { format, formatDistanceToNow } from 'date-fns'
+import { Flag, ExternalLink, Loader2, CalendarCheck, Copy, Check, Zap, AlertTriangle, Phone, Link } from 'lucide-react'
 import {
-  Mail,
-  Phone,
-  Calendar,
-  Clock,
-  Tag,
-  Globe,
-  CheckCircle2,
-  XCircle,
-  Heart,
-  MessageSquare,
-  CalendarPlus,
-  Copy,
-  Check,
-} from 'lucide-react'
+  Sheet,
+  SheetContent,
+} from '@/components/ui/sheet'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { ConversationDialog } from './conversation-dialog'
 import { useLeadConversation } from '@/hooks/use-lead-conversation'
-import type { Lead, Campaign } from '@/types/database'
+import { supabase } from '@/lib/supabase'
+import type { Lead, Campaign, Conversation, ConversationMessage } from '@/types/database'
+
+const AVATAR_COLORS = ['#0A8754', '#3B82F6', '#F59E0B', '#8B5CF6', '#0EAD6A', '#F44336']
+
+function getAvatarColor(name: string) {
+  const hash = name.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length]
+}
+
+function getInitials(name: string) {
+  return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
+}
 
 interface LeadDetailSheetProps {
   lead: Lead | null
   statuses: Campaign[]
   open: boolean
   onOpenChange: (open: boolean) => void
-  onStatusChange?: (leadId: string, newCampaign: string) => void
-  updating?: boolean
-}
 
-const CALENDLY_BASE = 'https://calendly.com/matt-deep-dive-trusts/call'
+}
 
 export function LeadDetailSheet({
   lead,
@@ -45,260 +43,487 @@ export function LeadDetailSheet({
   open,
   onOpenChange,
 }: LeadDetailSheetProps) {
-  const [conversationOpen, setConversationOpen] = useState(false)
+  const [fullConvOpen, setFullConvOpen] = useState(false)
   const [copied, setCopied] = useState(false)
-  const { data, loading: convLoading, error: convError, fetchConversation, reset } = useLeadConversation()
+  const [outreachConfirmOpen, setOutreachConfirmOpen] = useState(false)
+  const [updatingOutreach, setUpdatingOutreach] = useState(false)
+
+  const handleCopyCalendly = (url: string) => {
+    navigator.clipboard.writeText(url)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleStartOutreach = async () => {
+    if (!lead) return
+    setUpdatingOutreach(true)
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({ campaign: 'welcome' })
+        .eq('id', lead.id)
+      if (error) throw error
+      setOutreachConfirmOpen(false)
+    } catch (err) {
+      console.error('Failed to start outreach:', err)
+    } finally {
+      setUpdatingOutreach(false)
+    }
+  }
+  const {
+    data: convData,
+    loading: convLoading,
+    error: convError,
+    fetchConversation,
+    reset,
+  } = useLeadConversation()
 
   useEffect(() => {
+    if (open && lead?.phone) {
+      fetchConversation(lead.phone)
+    }
     if (!open) {
       reset()
-      setConversationOpen(false)
-      setCopied(false)
+      setFullConvOpen(false)
     }
-  }, [open, reset])
+  }, [open, lead?.phone])   // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!lead) return null
 
-  const campaignInfo = statuses.find((c) => c.name === lead.campaign)
+  const campaignInfo = statuses.find((s) => s.name === lead.campaign)
   const name = [lead.first_name, lead.last_name].filter(Boolean).join(' ') || 'Unknown'
-  const meetingUrl = lead.email
-    ? `${CALENDLY_BASE}?utm_source=${encodeURIComponent(lead.email)}`
-    : null
-
-  const handleViewConversation = () => {
-    if (lead.phone) {
-      fetchConversation(lead.phone)
-      setConversationOpen(true)
-    }
-  }
-
-  const handleCopyMeetingLink = useCallback(() => {
-    if (!meetingUrl) return
-    navigator.clipboard.writeText(meetingUrl)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }, [meetingUrl])
+  const avatarColor = getAvatarColor(name)
+  const initials = getInitials(name)
 
   return (
     <>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent
+          side="right"
+          className="p-0 gap-0 flex flex-col"
+          style={{ width: 500, maxWidth: '95vw', background: 'white', borderLeft: '1px solid #e0e6ed' }}
+        >
+          {/* ── Header ─────────────────────────────────────────── */}
+          <div style={{ padding: '20px 24px', borderBottom: '1px solid #e0e6ed', flexShrink: 0 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {/* Avatar + name */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                <div style={{
+                  width: 44, height: 44, borderRadius: '50%',
+                  background: avatarColor, color: 'white',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 15, fontWeight: 700, flexShrink: 0,
+                }}>
+                  {initials}
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: '#1a1a1a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {name}
+                  </div>
+                  <div style={{ fontSize: 13, color: '#7a8fa0' }}>
+                    {lead.email || lead.phone || 'No contact info'}
+                  </div>
+                </div>
+              </div>
 
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!w-[65vw] !max-w-[65vw] p-0 gap-0 overflow-hidden bg-gray-100 dark:bg-gray-900">
-        <DialogHeader className="px-6 py-4 border-b flex flex-row items-center justify-between pr-12">
-          <DialogTitle className="text-lg font-semibold">Lead Details</DialogTitle>
-          <div className="flex items-center gap-2">
-            {meetingUrl && (
-              <>
-                <a href={meetingUrl} target="_blank" rel="noopener noreferrer">
-                  <Button variant="outline" size="sm" className="gap-2 shrink-0">
-                    <CalendarPlus className="size-4" />
-                    Book Meeting
-                  </Button>
-                </a>
-                <Button variant="outline" size="sm" className="gap-2 shrink-0" onClick={handleCopyMeetingLink}>
-                  {copied ? <Check className="size-4 text-green-500" /> : <Copy className="size-4" />}
-                  {copied ? 'Copied!' : 'Copy Link'}
-                </Button>
-              </>
-            )}
+              {/* Campaign badge + Book Meeting */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                {(campaignInfo || lead.campaign) && (
+                  <span style={{
+                    display: 'inline-block',
+                    padding: '3px 10px',
+                    borderRadius: 100,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: campaignInfo?.colour || '#6b7280',
+                    borderWidth: 1,
+                    borderStyle: 'solid',
+                    borderColor: campaignInfo?.colour || '#6b7280',
+                    background: `${campaignInfo?.colour || '#6b7280'}15`,
+                  }}>
+                    {campaignInfo?.label || lead.campaign}
+                  </span>
+                )}
+                {lead.calendly_identifier && (() => {
+                  const url = `https://calendly.com/matt-deep-dive-trusts/call?utm_source=${lead.calendly_identifier}`
+                  return (
+                    <>
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 5,
+                          padding: '3px 10px',
+                          borderRadius: 100,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          color: '#0A8754',
+                          borderWidth: 1,
+                          borderStyle: 'solid',
+                          borderColor: '#0A8754',
+                          background: '#0A875415',
+                          textDecoration: 'none',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <CalendarCheck style={{ width: 11, height: 11 }} />
+                        Book Meeting
+                      </a>
+                      <button
+                        onClick={() => handleCopyCalendly(url)}
+                        title="Copy link"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: 24,
+                          height: 24,
+                          borderRadius: 6,
+                          border: '1px solid #e0e6ed',
+                          background: copied ? '#f0fdf4' : 'white',
+                          color: copied ? '#0A8754' : '#7a8fa0',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {copied
+                          ? <Check style={{ width: 11, height: 11 }} />
+                          : <Copy style={{ width: 11, height: 11 }} />
+                        }
+                      </button>
+                    </>
+                  )
+                })()}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Scrollable body ────────────────────────────────── */}
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+
+            {/* Contact Details */}
+            <Section title="Contact Details">
+              <DpRow label="Email" value={lead.email || 'Not provided'} />
+              <DpRow label="Phone" value={lead.phone || 'N/A'} />
+              {lead.source && <DpRow label="Source" value={lead.source} />}
+            </Section>
+
+            {/* Qualification */}
+            <Section title="Qualification">
+              <DpRow label="Current Stage" value={campaignInfo?.label || lead.campaign || 'No status'} />
+              {lead.intent && <DpRow label="Intent" value={lead.intent} />}
+              {lead.interest_area && <DpRow label="Interest Area" value={lead.interest_area} />}
+              <DpRow label="Estate over £1.5m" value={lead.estate_over_1_5m === true ? 'Yes' : lead.estate_over_1_5m === false ? 'No' : 'Unknown'} />
+              <DpRow label="UK Taxpayer" value={lead.uk_taxpayer === true ? 'Yes' : lead.uk_taxpayer === false ? 'No' : 'Unknown'} />
+              <DpRow
+                label="Created"
+                value={lead.created_at
+                  ? `${format(new Date(lead.created_at), 'MMM d, yyyy')} · ${formatDistanceToNow(new Date(lead.created_at), { addSuffix: true })}`
+                  : 'Unknown'}
+              />
+              {lead.call_scheduled_at && (
+                <DpRow
+                  label="Call Scheduled"
+                  value={format(new Date(lead.call_scheduled_at), 'MMM d, yyyy h:mm a')}
+                />
+              )}
+              {lead.meeting_link && (
+                <MeetingLinkRow value={lead.meeting_link} />
+              )}
+            </Section>
+
+            {/* Conversation Preview */}
             {lead.phone && (
-              <Button variant="outline" size="sm" className="gap-2 shrink-0" onClick={handleViewConversation}>
-                <MessageSquare className="size-4" />
-                View Conversation
-              </Button>
+              <Section title="Conversation Preview">
+                <ConversationPreview
+                  conversations={convData?.conversations || []}
+                  capturePoint={convData?.capturePoint || null}
+                  loading={convLoading}
+                  error={convError}
+                />
+              </Section>
             )}
-          </div>
-        </DialogHeader>
 
-        <ScrollArea className="max-h-[70vh]">
-          <div className="px-6 py-5 space-y-5">
-            {/* Name and Campaign */}
-            <div className="flex items-start justify-between">
-              <h2 className="text-2xl font-bold">{name}</h2>
-              {campaignInfo ? (
-                <Badge
-                  className="text-white text-sm px-3 py-1 rounded-full"
-                  style={{ backgroundColor: campaignInfo.colour }}
+            {/* Actions */}
+            <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {lead.campaign === 'need_to_call' && (
+                <button
+                  onClick={() => setOutreachConfirmOpen(true)}
+                  style={{
+                    padding: '10px 16px', borderRadius: 8,
+                    background: '#7C3AED', color: 'white', border: 'none',
+                    fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    fontFamily: 'inherit', transition: 'background 0.2s',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = '#6D28D9')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = '#7C3AED')}
                 >
-                  {campaignInfo.label}
-                </Badge>
-              ) : lead.campaign ? (
-                <Badge variant="secondary">{lead.campaign}</Badge>
-              ) : null}
-            </div>
-
-            {/* Contact Information */}
-            <div className="rounded-xl border p-5 bg-white dark:bg-gray-800">
-              <h3 className="flex items-center gap-2 text-base font-semibold mb-4">
-                <svg className="size-5 text-teal-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-                  <circle cx="12" cy="7" r="4" />
-                </svg>
-                Contact Information
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-start gap-3">
-                  <div className="flex size-10 items-center justify-center rounded-lg bg-cyan-50 dark:bg-cyan-950">
-                    <Mail className="size-5 text-cyan-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Email</p>
-                    <p className="font-medium">{lead.email || 'Not provided'}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="flex size-10 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950">
-                    <Phone className="size-5 text-emerald-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Phone</p>
-                    <p className="font-medium">{lead.phone || 'N/A'}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Timeline */}
-            <div className="rounded-xl border p-5 bg-white dark:bg-gray-800">
-              <h3 className="flex items-center gap-2 text-base font-semibold mb-4">
-                <Clock className="size-5" />
-                Timeline
-              </h3>
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10">
-                    <Calendar className="size-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Created</p>
-                    <p className="font-medium">
-                      {lead.created_at
-                        ? format(new Date(lead.created_at), 'M/d/yyyy, h:mm:ss a')
-                        : 'Unknown'}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {lead.created_at
-                        ? formatDistanceToNow(new Date(lead.created_at), { addSuffix: true })
-                        : ''}
-                    </p>
-                  </div>
-                </div>
-                {lead.call_scheduled_at && (
-                  <div className="flex items-start gap-3">
-                    <div className="flex size-10 items-center justify-center rounded-lg bg-blue-500/10">
-                      <Calendar className="size-5 text-blue-500" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Call Scheduled</p>
-                      <p className="font-medium">
-                        {format(new Date(lead.call_scheduled_at), 'M/d/yyyy, h:mm a')}
-                      </p>
-                    </div>
-                  </div>
-                )}
-                <div className="flex items-start gap-3">
-                  <div className="flex size-10 items-center justify-center rounded-lg bg-emerald-500/10">
-                    <Tag className="size-5 text-emerald-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Pipeline Stage</p>
-                    <p className="font-medium">
-                      {campaignInfo?.label || lead.campaign || 'Not set'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Intent & Source */}
-            <div className="rounded-xl border p-5 bg-white dark:bg-gray-800">
-              <h3 className="flex items-center gap-2 text-base font-semibold mb-4">
-                <Globe className="size-5" />
-                Intent &amp; Source
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-start gap-3">
-                  <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
-                    <Heart className="size-5 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Intent</p>
-                    <p className="font-medium">{lead.intent || 'Not specified'}</p>
-                  </div>
-                </div>
-                {lead.interest_area && (
-                  <div className="flex items-start gap-3 col-span-2">
-                    <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
-                      <Tag className="size-5 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Interest Area</p>
-                      <p className="font-medium">{lead.interest_area}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Qualification Flags */}
-            <div className="rounded-xl border p-5 bg-white dark:bg-gray-800">
-              <h3 className="flex items-center gap-2 text-base font-semibold mb-4">
-                <CheckCircle2 className="size-5" />
-                Qualification
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                <QualFlag label="Estate over £1.5m" value={lead.estate_over_1_5m} />
-                <QualFlag label="UK Taxpayer" value={lead.uk_taxpayer} />
-              </div>
-            </div>
-
-            {/* Meeting Link */}
-            {lead.meeting_link && (
-              <div className="rounded-xl border p-5 bg-white dark:bg-gray-800">
-                <h3 className="text-base font-semibold mb-3">Meeting Link</h3>
-                <a
-                  href={lead.meeting_link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-blue-500 underline break-all"
+                  <Zap style={{ width: 14, height: 14 }} />
+                  Move to Ivy Outreach
+                </button>
+              )}
+              {lead.phone && (
+                <button
+                  onClick={() => setFullConvOpen(true)}
+                  style={{
+                    padding: '10px 16px', borderRadius: 8,
+                    background: '#0A8754', color: 'white', border: 'none',
+                    fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    fontFamily: 'inherit', transition: 'background 0.2s',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = '#076B43')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = '#0A8754')}
                 >
-                  {lead.meeting_link}
-                </a>
-              </div>
-            )}
+                  <ExternalLink style={{ width: 14, height: 14 }} />
+                  View Full Conversation
+                </button>
+              )}
+              <button
+                onClick={() => onOpenChange(false)}
+                style={{
+                  padding: '10px 16px', borderRadius: 8,
+                  background: 'white', color: '#1a1a1a', border: '1px solid #e0e6ed',
+                  fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                  textAlign: 'center', fontFamily: 'inherit', transition: 'background 0.2s',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = '#f5f7fa')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'white')}
+              >
+                Close
+              </button>
+            </div>
+
           </div>
-        </ScrollArea>
+        </SheetContent>
+      </Sheet>
 
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t bg-muted/30">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Close
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+      {/* Move to Ivy Outreach confirmation */}
+      <Dialog open={outreachConfirmOpen} onOpenChange={setOutreachConfirmOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="size-5 text-amber-500" />
+              Move to Ivy Outreach?
+            </DialogTitle>
+            <DialogDescription>
+              This will move <strong>{[lead.first_name, lead.last_name].filter(Boolean).join(' ') || 'this lead'}</strong> from{' '}
+              <strong>Awaiting Contact</strong> to the <strong>Ivy Outreach</strong> campaign and trigger automated outreach via Ivy.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <button
+              onClick={() => setOutreachConfirmOpen(false)}
+              disabled={updatingOutreach}
+              style={{
+                padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 500,
+                background: 'white', color: '#1a1a1a', border: '1px solid #e0e6ed',
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleStartOutreach}
+              disabled={updatingOutreach}
+              style={{
+                padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 500,
+                background: updatingOutreach ? '#9D71F0' : '#7C3AED', color: 'white', border: 'none',
+                cursor: updatingOutreach ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+                display: 'flex', alignItems: 'center', gap: 6,
+              }}
+            >
+              {updatingOutreach
+                ? <><Loader2 style={{ width: 13, height: 13 }} className="animate-spin" /> Starting…</>
+                : <><Zap style={{ width: 13, height: 13 }} /> Confirm</>
+              }
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-    <ConversationDialog
-      open={conversationOpen}
-      onOpenChange={setConversationOpen}
-      conversations={data?.conversations || []}
-      capturePoint={null}
-      loading={convLoading}
-      error={convError}
-    />
+      {/* Full conversation dialog */}
+      <ConversationDialog
+        open={fullConvOpen}
+        onOpenChange={setFullConvOpen}
+        conversations={convData?.conversations || []}
+        capturePoint={convData?.capturePoint || null}
+        loading={convLoading}
+        error={convError}
+      />
     </>
   )
 }
 
-function QualFlag({ label, value, inverted = false }: { label: string; value: boolean | null; inverted?: boolean }) {
-  const positive = inverted ? !value : value
+// ─── Conversation Preview (WhatsApp-style inline) ──────────────────────────────
+
+interface ConversationPreviewProps {
+  conversations: Conversation[]
+  capturePoint: number | null
+  loading: boolean
+  error: Error | null
+}
+
+function ConversationPreview({ conversations, capturePoint, loading, error }: ConversationPreviewProps) {
+  const bottomRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [conversations.length])
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0' }}>
+        <Loader2 style={{ width: 18, height: 18, color: '#7a8fa0' }} className="animate-spin" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return <p style={{ fontSize: 13, color: '#dc2626' }}>Failed to load conversation</p>
+  }
+
+  if (conversations.length === 0) {
+    return <p style={{ fontSize: 13, color: '#7a8fa0' }}>No conversation yet</p>
+  }
+
+  const visibleMessages = conversations.filter((conv) => {
+    const msg = conv.message as unknown as ConversationMessage
+    return (msg.type === 'human' || msg.type === 'ai') &&
+      !(msg.type === 'ai' && Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0)
+  })
+
+  const getContent = (msg: ConversationMessage) => {
+    if (msg.type === 'human') {
+      const match = msg.content.match(/User's current message:\s*(.*)$/s)
+      return match ? match[1].trim() : msg.content
+    }
+    return msg.content
+  }
+
   return (
-    <div className="flex items-center gap-2 text-sm">
-      {positive ? (
-        <CheckCircle2 className="size-4 text-green-500" />
+    <div
+      style={{
+        background: '#ECE5DD',
+        borderRadius: 10,
+        padding: 12,
+        maxHeight: 260,
+        overflowY: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+      }}
+    >
+      {visibleMessages.map((conv) => {
+        const msg = conv.message as unknown as ConversationMessage
+        const isHuman = msg.type === 'human'
+        const isCapturePoint = capturePoint !== null && conv.id === capturePoint
+        const content = getContent(msg)
+
+        return (
+          <div key={conv.id}>
+            {isCapturePoint && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', margin: '4px 0' }}>
+                <div style={{ flex: 1, height: 1, background: '#0A8754' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 600, color: '#0A8754', background: '#f0fdf4', padding: '3px 8px', borderRadius: 10 }}>
+                  <Flag style={{ width: 9, height: 9 }} />
+                  Lead Captured
+                </div>
+                <div style={{ flex: 1, height: 1, background: '#0A8754' }} />
+              </div>
+            )}
+            <div
+              style={{
+                maxWidth: '80%',
+                padding: '8px 12px',
+                borderRadius: 14,
+                fontSize: 13,
+                lineHeight: 1.5,
+                background: isHuman ? '#DCF8C6' : 'white',
+                marginLeft: isHuman ? 'auto' : undefined,
+                borderTopLeftRadius: isHuman ? 14 : 4,
+                borderTopRightRadius: isHuman ? 4 : 14,
+                wordBreak: 'break-word',
+              }}
+            >
+              {content}
+              {conv.created_at && (
+                <div style={{ fontSize: 10, color: '#999', textAlign: 'right', marginTop: 3 }}>
+                  {format(new Date(conv.created_at), 'h:mm a')}
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })}
+      <div ref={bottomRef} />
+    </div>
+  )
+}
+
+// ─── Shared sub-components ─────────────────────────────────────────────────────
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div style={{ padding: '16px 24px', borderBottom: '1px solid #f0f0f0' }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: '#7a8fa0', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 }}>
+        {title}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function MeetingLinkRow({ value }: { value: string }) {
+  const isUrl = /^https?:\/\//i.test(value.trim())
+  const isPhone = !isUrl && /^[\+\d][\d\s\-\(\)\.]{5,}$/.test(value.trim())
+
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', fontSize: 13, gap: 12, minWidth: 0 }}>
+      <span style={{ color: '#7a8fa0', flexShrink: 0 }}>Meeting Link</span>
+      {isUrl ? (
+        <a
+          href={value}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            color: '#0A8754', textDecoration: 'none', fontWeight: 500,
+            minWidth: 0, overflow: 'hidden',
+          }}
+        >
+          <Link style={{ width: 12, height: 12, flexShrink: 0 }} />
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</span>
+          <ExternalLink style={{ width: 11, height: 11, flexShrink: 0, opacity: 0.6 }} />
+        </a>
+      ) : isPhone ? (
+        <a
+          href={`tel:${value.replace(/\s/g, '')}`}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            color: '#3B82F6', textDecoration: 'none', fontWeight: 500,
+          }}
+        >
+          <Phone style={{ width: 12, height: 12, flexShrink: 0 }} />
+          {value}
+        </a>
       ) : (
-        <XCircle className="size-4 text-muted-foreground" />
+        <span style={{ color: '#1a1a1a', textAlign: 'right', wordBreak: 'break-word' }}>{value}</span>
       )}
-      <span className={positive ? 'font-medium' : 'text-muted-foreground'}>{label}</span>
+    </div>
+  )
+}
+
+function DpRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 13, gap: 12 }}>
+      <span style={{ color: '#7a8fa0', flexShrink: 0, textTransform: 'capitalize' }}>{label}</span>
+      <span style={{ color: '#1a1a1a', textAlign: 'right', wordBreak: 'break-word' }}>{value}</span>
     </div>
   )
 }

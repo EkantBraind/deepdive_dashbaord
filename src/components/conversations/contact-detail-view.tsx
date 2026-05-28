@@ -5,14 +5,10 @@ import {
   Mail,
   Phone,
   MessageSquare,
-  Bot,
-  User,
   Wrench,
   AlertCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -48,7 +44,7 @@ function MessageBubble({ conv }: { conv: Conversation }) {
     const toolName = message.tool_calls[0]?.name || 'Tool'
     return (
       <div className="flex justify-center my-2">
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/50 border border-dashed text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/70 border border-dashed border-gray-300 text-xs text-gray-500">
           <Wrench className="size-3" />
           <span>{formatToolName(toolName)}</span>
         </div>
@@ -59,34 +55,23 @@ function MessageBubble({ conv }: { conv: Conversation }) {
   const displayContent = isHuman ? getHumanContent(message.content) : message.content
 
   return (
-    <div className={cn('flex items-end gap-2', isHuman ? 'justify-end' : 'justify-start')}>
-      {!isHuman && (
-        <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted">
-          <Bot className="size-4 text-muted-foreground" />
-        </div>
-      )}
-      <div className={cn('flex flex-col max-w-[75%]', isHuman ? 'items-end' : 'items-start')}>
-        <div
-          className={cn(
-            'px-4 py-2.5 text-sm',
-            isHuman
-              ? 'bg-primary text-primary-foreground rounded-2xl rounded-br-md'
-              : 'bg-muted rounded-2xl rounded-bl-md'
-          )}
-        >
-          <p className="whitespace-pre-wrap">{displayContent}</p>
-        </div>
+    <div className={cn('flex', isHuman ? 'justify-end' : 'justify-start')}>
+      <div
+        className={cn(
+          'max-w-[75%] px-3.5 py-2.5 text-[13px] leading-relaxed text-gray-900',
+          isHuman
+            ? 'rounded-[14px] rounded-tr-[4px]'
+            : 'bg-white rounded-[14px] rounded-tl-[4px]'
+        )}
+        style={isHuman ? { backgroundColor: '#DCF8C6' } : {}}
+      >
+        <p className="whitespace-pre-wrap">{displayContent}</p>
         {conv.created_at && (
-          <span className="text-[10px] text-muted-foreground mt-1 px-1">
-            {format(new Date(conv.created_at), 'h:mm a')}
-          </span>
+          <p className="text-[10px] text-gray-400 text-right mt-1">
+            {isHuman ? 'You' : 'Ivy'} · {format(new Date(conv.created_at), 'h:mm a')}
+          </p>
         )}
       </div>
-      {isHuman && (
-        <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary">
-          <User className="size-4 text-primary-foreground" />
-        </div>
-      )}
     </div>
   )
 }
@@ -98,18 +83,16 @@ function SessionBlock({ session }: { session: ContactSession }) {
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-2 py-3">
-        <div className="flex-1 h-px bg-border" />
-        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted px-3 py-1.5 rounded-full">
+        <div className="flex-1 h-px bg-[#c5b9ae]" />
+        <div className="flex items-center gap-2 text-xs text-gray-500 bg-[#d4c8be] px-3 py-1.5 rounded-full">
           <ChannelIcon className="size-3" />
           <span>
             {channelLabel}
             {session.createdAt && ` - ${format(new Date(session.createdAt), 'MMM d, yyyy h:mm a')}`}
           </span>
-          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-            {session.messageCount} msgs
-          </Badge>
+          <span className="text-[10px] font-medium">{session.messageCount} msgs</span>
         </div>
-        <div className="flex-1 h-px bg-border" />
+        <div className="flex-1 h-px bg-[#c5b9ae]" />
       </div>
       <div className="space-y-3">
         {session.conversations.map((conv) => (
@@ -131,15 +114,15 @@ export function ContactDetailView({ contact, onBack }: ContactDetailViewProps) {
   const emailSessions = useMemo(() => sessions.filter((s) => s.channel === 'email'), [sessions])
   const whatsappSessions = useMemo(() => sessions.filter((s) => s.channel === 'whatsapp'), [sessions])
 
-  const defaultTab = hasEmail ? 'email' : 'whatsapp'
+  const defaultTab = hasWhatsApp ? 'whatsapp' : 'email'
 
   return (
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5">
+        <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5 text-[#0A8754] hover:text-[#0A8754] hover:bg-green-50 font-semibold">
           <ArrowLeft className="size-4" />
-          Back
+          Back to Conversations
         </Button>
         <div className="flex items-center gap-3">
           <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary font-medium">
@@ -175,29 +158,29 @@ export function ContactDetailView({ contact, onBack }: ContactDetailViewProps) {
       {/* Channel Tabs */}
       <Tabs defaultValue={defaultTab}>
         <TabsList>
-          {hasEmail && (
-            <TabsTrigger value="email" className="gap-1.5">
-              <Mail className="size-3.5" />
-              Email
-            </TabsTrigger>
-          )}
           {hasWhatsApp && (
             <TabsTrigger value="whatsapp" className="gap-1.5">
               <Phone className="size-3.5" />
               WhatsApp
             </TabsTrigger>
           )}
+          {hasEmail && (
+            <TabsTrigger value="email" className="gap-1.5">
+              <Mail className="size-3.5" />
+              Email
+            </TabsTrigger>
+          )}
         </TabsList>
-
-        {hasEmail && (
-          <TabsContent value="email">
-            <SessionList sessions={emailSessions} loading={loading} />
-          </TabsContent>
-        )}
 
         {hasWhatsApp && (
           <TabsContent value="whatsapp">
             <SessionList sessions={whatsappSessions} loading={loading} />
+          </TabsContent>
+        )}
+
+        {hasEmail && (
+          <TabsContent value="email">
+            <SessionList sessions={emailSessions} loading={loading} />
           </TabsContent>
         )}
       </Tabs>
@@ -208,53 +191,43 @@ export function ContactDetailView({ contact, onBack }: ContactDetailViewProps) {
 function SessionList({ sessions, loading }: { sessions: ContactSession[]; loading: boolean }) {
   if (loading) {
     return (
-      <Card>
-        <CardContent className="p-6 space-y-4">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="space-y-3">
-              <Skeleton className="h-4 w-48 mx-auto" />
-              <div className="space-y-2">
-                <div className="flex justify-end">
-                  <Skeleton className="h-10 w-48 rounded-2xl" />
-                </div>
-                <div className="flex justify-start">
-                  <Skeleton className="h-16 w-64 rounded-2xl" />
-                </div>
+      <div className="h-[calc(100vh-300px)] rounded-xl p-6 space-y-4" style={{ backgroundColor: '#ECE5DD' }}>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="space-y-3">
+            <Skeleton className="h-4 w-48 mx-auto bg-[#d4c8be]" />
+            <div className="space-y-2">
+              <div className="flex justify-end">
+                <Skeleton className="h-10 w-48 rounded-2xl bg-[#d4c8be]" />
+              </div>
+              <div className="flex justify-start">
+                <Skeleton className="h-16 w-64 rounded-2xl bg-[#d4c8be]" />
               </div>
             </div>
-          ))}
-        </CardContent>
-      </Card>
+          </div>
+        ))}
+      </div>
     )
   }
 
   if (sessions.length === 0) {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="flex size-14 items-center justify-center rounded-full bg-muted mb-4">
-            <MessageSquare className="size-7 text-muted-foreground" />
-          </div>
-          <h3 className="font-semibold mb-1">No conversations yet</h3>
-          <p className="text-sm text-muted-foreground">
-            No conversation sessions found for this channel.
-          </p>
-        </CardContent>
-      </Card>
+      <div className="h-[calc(100vh-300px)] rounded-xl flex flex-col items-center justify-center text-center" style={{ backgroundColor: '#ECE5DD' }}>
+        <div className="flex size-14 items-center justify-center rounded-full bg-[#d4c8be] mb-4">
+          <MessageSquare className="size-7 text-gray-500" />
+        </div>
+        <h3 className="font-semibold mb-1 text-gray-700">No conversations yet</h3>
+        <p className="text-sm text-gray-500">No conversation sessions found for this channel.</p>
+      </div>
     )
   }
 
   return (
-    <Card>
-      <CardContent className="p-4">
-        <ScrollArea className="h-[calc(100vh-320px)]">
-          <div className="space-y-2 pr-4">
-            {sessions.map((session) => (
-              <SessionBlock key={session.sessionId} session={session} />
-            ))}
-          </div>
-        </ScrollArea>
-      </CardContent>
-    </Card>
+    <ScrollArea className="h-[calc(100vh-300px)] rounded-xl" style={{ backgroundColor: '#ECE5DD' }}>
+      <div className="p-4 space-y-2">
+        {sessions.map((session) => (
+          <SessionBlock key={session.sessionId} session={session} />
+        ))}
+      </div>
+    </ScrollArea>
   )
 }
