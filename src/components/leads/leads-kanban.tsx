@@ -186,6 +186,30 @@ function KanbanCard({ lead, onClick }: KanbanCardProps) {
         </div>
       </div>
 
+      {/* Intent */}
+      {lead.intent && (
+        <div style={{ marginTop: 6 }}>
+          <span
+            style={{
+              display: 'inline-block',
+              padding: '2px 8px',
+              borderRadius: 6,
+              fontSize: 11,
+              fontWeight: 500,
+              background: '#f5f7fa',
+              color: '#5a7a8f',
+              border: '1px solid #e0e6ed',
+              maxWidth: '100%',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {lead.intent}
+          </span>
+        </div>
+      )}
+
       {/* Date */}
       {lead.created_at && (
         <div style={{ fontSize: 11, color: '#b0bec5', marginTop: 4 }}>
