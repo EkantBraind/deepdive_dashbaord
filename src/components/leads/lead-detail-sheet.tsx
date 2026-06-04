@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { format, formatDistanceToNow } from 'date-fns'
-import { Flag, ExternalLink, Loader2, CalendarCheck, Copy, Check, Zap, AlertTriangle, Phone, Link } from 'lucide-react'
+import { Flag, ExternalLink, Loader2, CalendarCheck, Copy, Check, Zap, AlertTriangle, Phone, Link, StickyNote, Pencil, X } from 'lucide-react'
 import {
   Sheet,
   SheetContent,
@@ -47,6 +47,9 @@ export function LeadDetailSheet({
   const [copied, setCopied] = useState(false)
   const [progressConfirmOpen, setProgressConfirmOpen] = useState(false)
   const [progressing, setProgressing] = useState(false)
+  const [noteEditing, setNoteEditing] = useState(false)
+  const [noteDraft, setNoteDraft] = useState('')
+  const [noteSaving, setNoteSaving] = useState(false)
 
   const handleCopyCalendly = (url: string) => {
     navigator.clipboard.writeText(url)
@@ -98,8 +101,22 @@ export function LeadDetailSheet({
     if (!open) {
       reset()
       setFullConvOpen(false)
+      setNoteEditing(false)
     }
-  }, [open, lead?.phone])   // eslint-disable-line react-hooks/exhaustive-deps
+    if (open) {
+      setNoteDraft(lead?.notes ?? '')
+      setNoteEditing(false)
+    }
+  }, [open, lead?.id, lead?.phone])   // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSaveNote = async () => {
+    if (!lead) return
+    setNoteSaving(true)
+    await supabase.from('leads').update({ notes: noteDraft || null }).eq('id', lead.id)
+    lead.notes = noteDraft || null
+    setNoteSaving(false)
+    setNoteEditing(false)
+  }
 
   if (!lead) return null
 
@@ -113,208 +130,316 @@ export function LeadDetailSheet({
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
+        {/*
+          The sheet is expanded to 800px wide with a transparent background.
+          The notes panel lives as a real DOM child (no portal) so Radix counts
+          clicks on it as "inside" and never closes the sheet.
+          The visible white panel is an absolute 500px div pinned to the right.
+        */}
         <SheetContent
           side="right"
-          className="p-0 gap-0 flex flex-col"
-          style={{ width: 500, maxWidth: '95vw', background: 'white', borderLeft: '1px solid #e0e6ed' }}
+          className="p-0 gap-0"
+          style={{ width: 800, maxWidth: '95vw', background: 'transparent', border: 'none', boxShadow: 'none' }}
         >
-          {/* ── Header ─────────────────────────────────────────── */}
-          <div style={{ padding: '20px 24px', borderBottom: '1px solid #e0e6ed', flexShrink: 0 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              {/* Avatar + name */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
-                <div style={{
-                  width: 44, height: 44, borderRadius: '50%',
-                  background: avatarColor, color: 'white',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 15, fontWeight: 700, flexShrink: 0,
-                }}>
-                  {initials}
-                </div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: '#1a1a1a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {name}
+          {/* ── Notes panel — absolute child, no portal ─────────── */}
+          <div
+            style={{
+              position: 'absolute',
+              right: 516,
+              top: 10,
+              width: 272,
+              background: '#fffef5',
+              borderRadius: 12,
+              boxShadow: '0 8px 32px rgba(0,0,0,0.13), 0 2px 8px rgba(0,0,0,0.07)',
+              border: '1px solid #e8e0c0',
+              zIndex: 10,
+              display: 'flex',
+              flexDirection: 'column',
+              maxHeight: '60vh',
+            }}
+          >
+            <div style={{
+              padding: '10px 14px',
+              borderBottom: '1px solid #e8e0c0',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 7,
+              flexShrink: 0,
+            }}>
+              <StickyNote style={{ width: 13, height: 13, color: '#b5900a' }} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#b5900a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Notes
+              </span>
+              <span style={{ marginLeft: 'auto', fontSize: 11, color: '#c4aa3e', fontStyle: 'italic' }}>
+                {lead.first_name || 'Lead'}
+              </span>
+            </div>
+            <div style={{ padding: '12px 14px', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {noteEditing ? (
+                <>
+                  <textarea
+                    autoFocus
+                    value={noteDraft}
+                    onChange={(e) => setNoteDraft(e.target.value)}
+                    rows={5}
+                    style={{
+                      width: '100%',
+                      padding: '7px 9px',
+                      fontSize: 13,
+                      borderRadius: 7,
+                      border: '1px solid #c4aa3e',
+                      outline: 'none',
+                      resize: 'vertical',
+                      fontFamily: 'inherit',
+                      color: '#1a1a1a',
+                      lineHeight: 1.6,
+                      background: '#fffef5',
+                    }}
+                    placeholder="Write a note about this lead…"
+                  />
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button
+                      onClick={handleSaveNote}
+                      disabled={noteSaving}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 5,
+                        padding: '5px 13px', borderRadius: 6, fontSize: 12, fontWeight: 500,
+                        background: '#0A8754', color: 'white', border: 'none',
+                        cursor: noteSaving ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+                      }}
+                    >
+                      {noteSaving
+                        ? <><Loader2 style={{ width: 11, height: 11 }} className="animate-spin" /> Saving…</>
+                        : <><Check style={{ width: 11, height: 11 }} /> Save</>}
+                    </button>
+                    <button
+                      onClick={() => { setNoteDraft(lead.notes ?? ''); setNoteEditing(false) }}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 5,
+                        padding: '5px 11px', borderRadius: 6, fontSize: 12, fontWeight: 500,
+                        background: 'transparent', color: '#7a8fa0', border: '1px solid #d8d0a8',
+                        cursor: 'pointer', fontFamily: 'inherit',
+                      }}
+                    >
+                      <X style={{ width: 11, height: 11 }} /> Cancel
+                    </button>
                   </div>
-                  <div style={{ fontSize: 13, color: '#7a8fa0' }}>
-                    {lead.email || lead.phone || 'No contact info'}
-                  </div>
-                </div>
-              </div>
-
-              {/* Campaign badge + Book Meeting */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                {(campaignInfo || lead.campaign) && (
-                  <span style={{
-                    display: 'inline-block',
-                    padding: '3px 10px',
-                    borderRadius: 100,
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: campaignInfo?.colour || '#6b7280',
-                    borderWidth: 1,
-                    borderStyle: 'solid',
-                    borderColor: campaignInfo?.colour || '#6b7280',
-                    background: `${campaignInfo?.colour || '#6b7280'}15`,
-                  }}>
-                    {campaignInfo?.label || lead.campaign}
-                  </span>
-                )}
-                {lead.calendly_identifier && (() => {
-                  const url = `https://calendly.com/matt-deep-dive-trusts/call?utm_source=${lead.calendly_identifier}`
-                  return (
-                    <>
-                      <a
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 5,
-                          padding: '3px 10px',
-                          borderRadius: 100,
-                          fontSize: 11,
-                          fontWeight: 600,
-                          color: '#0A8754',
-                          borderWidth: 1,
-                          borderStyle: 'solid',
-                          borderColor: '#0A8754',
-                          background: '#0A875415',
-                          textDecoration: 'none',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <CalendarCheck style={{ width: 11, height: 11 }} />
-                        Book Meeting
-                      </a>
-                      <button
-                        onClick={() => handleCopyCalendly(url)}
-                        title="Copy link"
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          width: 24,
-                          height: 24,
-                          borderRadius: 6,
-                          border: '1px solid #e0e6ed',
-                          background: copied ? '#f0fdf4' : 'white',
-                          color: copied ? '#0A8754' : '#7a8fa0',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s',
-                          flexShrink: 0,
-                        }}
-                      >
-                        {copied
-                          ? <Check style={{ width: 11, height: 11 }} />
-                          : <Copy style={{ width: 11, height: 11 }} />
-                        }
-                      </button>
-                    </>
-                  )
-                })()}
-              </div>
+                </>
+              ) : lead.notes ? (
+                <>
+                  <p style={{ margin: 0, fontSize: 13, color: '#2a2010', lineHeight: 1.65, whiteSpace: 'pre-wrap', flex: 1 }}>
+                    {lead.notes}
+                  </p>
+                  <button
+                    onClick={() => { setNoteDraft(lead.notes ?? ''); setNoteEditing(true) }}
+                    style={{
+                      alignSelf: 'flex-start',
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      padding: '5px 11px', borderRadius: 6, fontSize: 12, fontWeight: 500,
+                      background: 'transparent', color: '#7a8fa0', border: '1px solid #d8d0a8',
+                      cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                  >
+                    <Pencil style={{ width: 11, height: 11 }} /> Edit
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setNoteEditing(true)}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                    padding: '9px 14px', borderRadius: 8, fontSize: 13, fontWeight: 500,
+                    background: 'transparent', color: '#b5900a', border: '1.5px dashed #c4aa3e',
+                    cursor: 'pointer', fontFamily: 'inherit', width: '100%',
+                  }}
+                >
+                  <StickyNote style={{ width: 13, height: 13 }} />
+                  Add a note
+                </button>
+              )}
             </div>
           </div>
 
-          {/* ── Scrollable body ────────────────────────────────── */}
-          <div style={{ flex: 1, overflowY: 'auto' }}>
+          {/* ── Visible sheet panel (500 px, pinned right) ──────── */}
+          <div style={{
+            position: 'absolute',
+            right: 0,
+            top: 0,
+            width: 500,
+            height: '100%',
+            background: 'white',
+            borderLeft: '1px solid #e0e6ed',
+            boxShadow: '-8px 0 30px rgba(0,0,0,0.12)',
+            display: 'flex',
+            flexDirection: 'column',
+          }}>
 
-            {/* Contact Details */}
-            <Section title="Contact Details">
-              <DpRow label="Email" value={lead.email || 'Not provided'} />
-              <DpRow label="Phone" value={lead.phone || 'N/A'} />
-              {lead.source && <DpRow label="Source" value={lead.source} />}
-            </Section>
-
-            {/* Qualification */}
-            <Section title="Qualification">
-              <DpRow label="Current Stage" value={campaignInfo?.label || lead.campaign || 'No status'} />
-              {lead.campaign === 'welcome' && <DpRow label="Calls Made" value={String(lead.number_of_calls ?? 0)} />}
-              {lead.intent && <DpRow label="Intent" value={lead.intent} />}
-              {lead.interest_area && <DpRow label="Interest Area" value={lead.interest_area} />}
-              <DpRow label="Estate over £1.5m" value={lead.estate_over_1_5m === true ? 'Yes' : lead.estate_over_1_5m === false ? 'No' : 'Unknown'} />
-              <DpRow label="UK Taxpayer" value={lead.uk_taxpayer === true ? 'Yes' : lead.uk_taxpayer === false ? 'No' : 'Unknown'} />
-              <DpRow
-                label="Created"
-                value={lead.created_at
-                  ? `${format(new Date(lead.created_at), 'MMM d, yyyy')} · ${formatDistanceToNow(new Date(lead.created_at), { addSuffix: true })}`
-                  : 'Unknown'}
-              />
-              {lead.call_scheduled_at && (
-                <DpRow
-                  label="Call Scheduled"
-                  value={format(new Date(lead.call_scheduled_at), 'MMM d, yyyy h:mm a')}
-                />
-              )}
-              {lead.meeting_link && (
-                <MeetingLinkRow value={lead.meeting_link} />
-              )}
-            </Section>
-
-            {/* Conversation Preview */}
-            {lead.phone && (
-              <Section title="Conversation Preview">
-                <ConversationPreview
-                  conversations={convData?.conversations || []}
-                  capturePoint={null}
-                  loading={convLoading}
-                  error={convError}
-                />
-              </Section>
-            )}
-
-            {/* Actions */}
-            <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {canProgress && (
-                <button
-                  onClick={() => setProgressConfirmOpen(true)}
-                  style={{
-                    padding: '10px 16px', borderRadius: 8,
-                    background: '#7C3AED', color: 'white', border: 'none',
-                    fontSize: 13, fontWeight: 500, cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    fontFamily: 'inherit', transition: 'background 0.2s',
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = '#6D28D9')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = '#7C3AED')}
-                >
-                  <Zap style={{ width: 14, height: 14 }} />
-                  Move to {nextStageLabel}
-                </button>
-              )}
-              {lead.phone && (
-                <button
-                  onClick={() => setFullConvOpen(true)}
-                  style={{
-                    padding: '10px 16px', borderRadius: 8,
-                    background: '#0A8754', color: 'white', border: 'none',
-                    fontSize: 13, fontWeight: 500, cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    fontFamily: 'inherit', transition: 'background 0.2s',
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = '#076B43')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = '#0A8754')}
-                >
-                  <ExternalLink style={{ width: 14, height: 14 }} />
-                  View Full Conversation
-                </button>
-              )}
-              <button
-                onClick={() => onOpenChange(false)}
-                style={{
-                  padding: '10px 16px', borderRadius: 8,
-                  background: 'white', color: '#1a1a1a', border: '1px solid #e0e6ed',
-                  fontSize: 13, fontWeight: 500, cursor: 'pointer',
-                  textAlign: 'center', fontFamily: 'inherit', transition: 'background 0.2s',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = '#f5f7fa')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'white')}
-              >
-                Close
-              </button>
+            {/* Header */}
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #e0e6ed', flexShrink: 0 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                  <div style={{
+                    width: 44, height: 44, borderRadius: '50%',
+                    background: avatarColor, color: 'white',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 15, fontWeight: 700, flexShrink: 0,
+                  }}>
+                    {initials}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: '#1a1a1a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {name}
+                    </div>
+                    <div style={{ fontSize: 13, color: '#7a8fa0' }}>
+                      {lead.email || lead.phone || 'No contact info'}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  {(campaignInfo || lead.campaign) && (
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '3px 10px',
+                      borderRadius: 100,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: campaignInfo?.colour || '#6b7280',
+                      borderWidth: 1,
+                      borderStyle: 'solid',
+                      borderColor: campaignInfo?.colour || '#6b7280',
+                      background: `${campaignInfo?.colour || '#6b7280'}15`,
+                    }}>
+                      {campaignInfo?.label || lead.campaign}
+                    </span>
+                  )}
+                  {lead.calendly_identifier && (() => {
+                    const url = `https://calendly.com/matt-deep-dive-trusts/call?utm_source=${lead.calendly_identifier}`
+                    return (
+                      <>
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 5,
+                            padding: '3px 10px', borderRadius: 100, fontSize: 11, fontWeight: 600,
+                            color: '#0A8754', borderWidth: 1, borderStyle: 'solid', borderColor: '#0A8754',
+                            background: '#0A875415', textDecoration: 'none', cursor: 'pointer',
+                          }}
+                        >
+                          <CalendarCheck style={{ width: 11, height: 11 }} />
+                          Book Meeting
+                        </a>
+                        <button
+                          onClick={() => handleCopyCalendly(url)}
+                          title="Copy link"
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            width: 24, height: 24, borderRadius: 6, border: '1px solid #e0e6ed',
+                            background: copied ? '#f0fdf4' : 'white',
+                            color: copied ? '#0A8754' : '#7a8fa0',
+                            cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0,
+                          }}
+                        >
+                          {copied ? <Check style={{ width: 11, height: 11 }} /> : <Copy style={{ width: 11, height: 11 }} />}
+                        </button>
+                      </>
+                    )
+                  })()}
+                </div>
+              </div>
             </div>
 
+            {/* Scrollable body */}
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+
+              <Section title="Contact Details">
+                <DpRow label="Email" value={lead.email || 'Not provided'} />
+                <DpRow label="Phone" value={lead.phone || 'N/A'} />
+                {lead.source && <DpRow label="Source" value={lead.source} />}
+              </Section>
+
+              <Section title="Qualification">
+                <DpRow label="Current Stage" value={campaignInfo?.label || lead.campaign || 'No status'} />
+                {lead.campaign === 'welcome' && <DpRow label="Calls Made" value={String(lead.number_of_calls ?? 0)} />}
+                {lead.intent && <DpRow label="Intent" value={lead.intent} />}
+                {lead.interest_area && <DpRow label="Interest Area" value={lead.interest_area} />}
+                <DpRow label="Estate over £1.5m" value={lead.estate_over_1_5m === true ? 'Yes' : lead.estate_over_1_5m === false ? 'No' : 'Unknown'} />
+                <DpRow label="UK Taxpayer" value={lead.uk_taxpayer === true ? 'Yes' : lead.uk_taxpayer === false ? 'No' : 'Unknown'} />
+                <DpRow
+                  label="Created"
+                  value={lead.created_at
+                    ? `${format(new Date(lead.created_at), 'MMM d, yyyy')} · ${formatDistanceToNow(new Date(lead.created_at), { addSuffix: true })}`
+                    : 'Unknown'}
+                />
+                {lead.call_scheduled_at && (
+                  <DpRow label="Call Scheduled" value={format(new Date(lead.call_scheduled_at), 'MMM d, yyyy h:mm a')} />
+                )}
+                {lead.meeting_link && <MeetingLinkRow value={lead.meeting_link} />}
+              </Section>
+
+              {lead.phone && (
+                <Section title="Conversation Preview">
+                  <ConversationPreview
+                    conversations={convData?.conversations || []}
+                    capturePoint={null}
+                    loading={convLoading}
+                    error={convError}
+                  />
+                </Section>
+              )}
+
+              <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {canProgress && (
+                  <button
+                    onClick={() => setProgressConfirmOpen(true)}
+                    style={{
+                      padding: '10px 16px', borderRadius: 8,
+                      background: '#7C3AED', color: 'white', border: 'none',
+                      fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                      fontFamily: 'inherit', transition: 'background 0.2s',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = '#6D28D9')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = '#7C3AED')}
+                  >
+                    <Zap style={{ width: 14, height: 14 }} />
+                    Move to {nextStageLabel}
+                  </button>
+                )}
+                {lead.phone && (
+                  <button
+                    onClick={() => setFullConvOpen(true)}
+                    style={{
+                      padding: '10px 16px', borderRadius: 8,
+                      background: '#0A8754', color: 'white', border: 'none',
+                      fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                      fontFamily: 'inherit', transition: 'background 0.2s',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = '#076B43')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = '#0A8754')}
+                  >
+                    <ExternalLink style={{ width: 14, height: 14 }} />
+                    View Full Conversation
+                  </button>
+                )}
+                <button
+                  onClick={() => onOpenChange(false)}
+                  style={{
+                    padding: '10px 16px', borderRadius: 8,
+                    background: 'white', color: '#1a1a1a', border: '1px solid #e0e6ed',
+                    fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                    textAlign: 'center', fontFamily: 'inherit', transition: 'background 0.2s',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = '#f5f7fa')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'white')}
+                >
+                  Close
+                </button>
+              </div>
+
+            </div>
           </div>
         </SheetContent>
       </Sheet>
@@ -372,6 +497,7 @@ export function LeadDetailSheet({
         loading={convLoading}
         error={convError}
       />
+
     </>
   )
 }

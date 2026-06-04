@@ -33,6 +33,7 @@ export interface Database {
           call_scheduled_at: string | null
           meeting_link: string | null
           number_of_calls: number | null
+          notes: string | null
         }
         Insert: {
           id?: string
@@ -57,6 +58,7 @@ export interface Database {
           call_scheduled_at?: string | null
           meeting_link?: string | null
           number_of_calls?: number | null
+          notes?: string | null
         }
         Update: {
           id?: string
@@ -81,6 +83,7 @@ export interface Database {
           call_scheduled_at?: string | null
           meeting_link?: string | null
           number_of_calls?: number | null
+          notes?: string | null
         }
       }
       conversations: {

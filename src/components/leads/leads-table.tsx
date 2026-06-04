@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { format } from 'date-fns'
-import { Users } from 'lucide-react'
+import { Users, StickyNote, Check, X, Loader2, Pencil } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -11,6 +12,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { supabase } from '@/lib/supabase'
 import type { Lead, Campaign } from '@/types/database'
 
 interface LeadsTableProps {
@@ -18,6 +20,121 @@ interface LeadsTableProps {
   statuses: Campaign[]
   loading: boolean
   onLeadClick?: (lead: Lead) => void
+}
+
+function NoteCell({ lead }: { lead: Lead }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(lead.notes ?? '')
+  const [saving, setSaving] = useState(false)
+
+  const save = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setSaving(true)
+    await supabase.from('leads').update({ notes: draft || null }).eq('id', lead.id)
+    setSaving(false)
+    setEditing(false)
+    lead.notes = draft || null
+  }
+
+  const cancel = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setDraft(lead.notes ?? '')
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 200 }}
+      >
+        <textarea
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          rows={3}
+          style={{
+            width: '100%',
+            padding: '6px 8px',
+            fontSize: 12,
+            borderRadius: 6,
+            border: '1px solid #0A8754',
+            outline: 'none',
+            resize: 'vertical',
+            fontFamily: 'inherit',
+            color: '#1a1a1a',
+          }}
+          placeholder="Add a note…"
+        />
+        <div style={{ display: 'flex', gap: 4 }}>
+          <button
+            onClick={save}
+            disabled={saving}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 500,
+              background: '#0A8754', color: 'white', border: 'none',
+              cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            {saving ? <Loader2 style={{ width: 11, height: 11 }} className="animate-spin" /> : <Check style={{ width: 11, height: 11 }} />}
+            Save
+          </button>
+          <button
+            onClick={cancel}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 500,
+              background: 'white', color: '#7a8fa0', border: '1px solid #e0e6ed',
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            <X style={{ width: 11, height: 11 }} />
+            Cancel
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (lead.notes) {
+    return (
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ display: 'flex', alignItems: 'flex-start', gap: 6, maxWidth: 220 }}
+      >
+        <span style={{ fontSize: 12, color: '#1a1a1a', lineHeight: 1.5, flex: 1, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+          {lead.notes}
+        </span>
+        <button
+          onClick={(e) => { e.stopPropagation(); setDraft(lead.notes ?? ''); setEditing(true) }}
+          title="Edit note"
+          style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 22, height: 22, borderRadius: 5, border: '1px solid #e0e6ed',
+            background: 'white', color: '#7a8fa0', cursor: 'pointer', flexShrink: 0,
+          }}
+        >
+          <Pencil style={{ width: 11, height: 11 }} />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); setEditing(true) }}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 500,
+        background: 'white', color: '#7a8fa0', border: '1px solid #e0e6ed',
+        cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
+      }}
+    >
+      <StickyNote style={{ width: 11, height: 11 }} />
+      Add Note
+    </button>
+  )
 }
 
 export function LeadsTable({ leads, statuses, loading, onLeadClick }: LeadsTableProps) {
@@ -69,11 +186,13 @@ export function LeadsTable({ leads, statuses, loading, onLeadClick }: LeadsTable
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
+              <TableHead className="font-semibold w-10"></TableHead>
               <TableHead className="font-semibold">Contact</TableHead>
               <TableHead className="font-semibold">Phone</TableHead>
               <TableHead className="font-semibold">Campaign</TableHead>
               <TableHead className="font-semibold">Source</TableHead>
               <TableHead className="font-semibold">Created</TableHead>
+              <TableHead className="font-semibold">Notes</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -88,6 +207,15 @@ export function LeadsTable({ leads, statuses, loading, onLeadClick }: LeadsTable
                   className={`${index % 2 === 0 ? 'bg-background' : 'bg-muted/30'} cursor-pointer hover:bg-muted/50`}
                   onClick={() => onLeadClick?.(lead)}
                 >
+                  <TableCell className="pr-0" onClick={(e) => e.stopPropagation()}>
+                    <div
+                      style={{
+                        width: 3, height: 32, borderRadius: 2,
+                        background: lead.notes ? '#0A8754' : '#e0e6ed',
+                        margin: '0 auto',
+                      }}
+                    />
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <div className="flex size-9 items-center justify-center rounded-full bg-primary/10 text-primary font-medium text-sm">
@@ -127,6 +255,9 @@ export function LeadsTable({ leads, statuses, loading, onLeadClick }: LeadsTable
                     {lead.created_at
                       ? format(new Date(lead.created_at), 'MMM d, yyyy')
                       : '—'}
+                  </TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <NoteCell lead={lead} />
                   </TableCell>
                 </TableRow>
               )
