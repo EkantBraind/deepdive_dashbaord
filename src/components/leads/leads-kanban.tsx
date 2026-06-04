@@ -26,7 +26,7 @@ export function LeadsKanban({ leads, statuses, loading, onLeadClick }: LeadsKanb
     return (
       <ScrollArea className="w-full">
         <div style={{ display: 'flex', gap: 14, paddingBottom: 16 }}>
-          {Array.from({ length: 4 }).map((_, i) => (
+          {Array.from({ length: 7 }).map((_, i) => (
             <div key={i} style={{ minWidth: 200, flex: 1 }}>
               <Skeleton style={{ height: 38, borderRadius: 10, marginBottom: 10 }} />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -52,7 +52,9 @@ export function LeadsKanban({ leads, statuses, loading, onLeadClick }: LeadsKanb
     <ScrollArea className="w-full">
       <div style={{ display: 'flex', gap: 14, paddingBottom: 16 }}>
         {statuses.map((status) => {
-          const statusLeads = leads.filter((l) => l.campaign === status.name)
+          const statusLeads = leads.filter((l) =>
+            status.filter ? status.filter(l) : l.campaign === status.name
+          )
           return (
             <KanbanColumn
               key={status.name}

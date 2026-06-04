@@ -45,8 +45,8 @@ export function LeadDetailSheet({
 }: LeadDetailSheetProps) {
   const [fullConvOpen, setFullConvOpen] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [outreachConfirmOpen, setOutreachConfirmOpen] = useState(false)
-  const [updatingOutreach, setUpdatingOutreach] = useState(false)
+  const [progressConfirmOpen, setProgressConfirmOpen] = useState(false)
+  const [progressing, setProgressing] = useState(false)
 
   const handleCopyCalendly = (url: string) => {
     navigator.clipboard.writeText(url)
@@ -54,20 +54,33 @@ export function LeadDetailSheet({
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const handleStartOutreach = async () => {
+  const STAGE_LABELS: Record<number, string> = {
+    0: 'Awaiting Contact',
+    1: 'Call Not Answered - 1',
+    2: 'Call Not Answered - 2',
+    3: 'Call Not Answered - 3',
+    4: 'Ivy Outreach',
+  }
+
+  const currentCalls = lead?.number_of_calls ?? 0
+  const nextCalls = currentCalls + 1
+  const nextStageLabel = STAGE_LABELS[Math.min(nextCalls, 4)] ?? 'Ivy Outreach'
+  const canProgress = lead?.campaign === 'welcome' && currentCalls < 4
+
+  const handleProgressStage = async () => {
     if (!lead) return
-    setUpdatingOutreach(true)
+    setProgressing(true)
     try {
       const { error } = await supabase
         .from('leads')
-        .update({ campaign: 'welcome' })
+        .update({ number_of_calls: nextCalls })
         .eq('id', lead.id)
       if (error) throw error
-      setOutreachConfirmOpen(false)
+      setProgressConfirmOpen(false)
     } catch (err) {
-      console.error('Failed to start outreach:', err)
+      console.error('Failed to progress stage:', err)
     } finally {
-      setUpdatingOutreach(false)
+      setProgressing(false)
     }
   }
   const {
@@ -90,7 +103,9 @@ export function LeadDetailSheet({
 
   if (!lead) return null
 
-  const campaignInfo = statuses.find((s) => s.name === lead.campaign)
+  const campaignInfo = statuses.find((s) =>
+    s.filter ? s.filter(lead) : s.name === lead.campaign
+  )
   const name = [lead.first_name, lead.last_name].filter(Boolean).join(' ') || 'Unknown'
   const avatarColor = getAvatarColor(name)
   const initials = getInitials(name)
@@ -215,6 +230,7 @@ export function LeadDetailSheet({
             {/* Qualification */}
             <Section title="Qualification">
               <DpRow label="Current Stage" value={campaignInfo?.label || lead.campaign || 'No status'} />
+              {lead.campaign === 'welcome' && <DpRow label="Calls Made" value={String(lead.number_of_calls ?? 0)} />}
               {lead.intent && <DpRow label="Intent" value={lead.intent} />}
               {lead.interest_area && <DpRow label="Interest Area" value={lead.interest_area} />}
               <DpRow label="Estate over £1.5m" value={lead.estate_over_1_5m === true ? 'Yes' : lead.estate_over_1_5m === false ? 'No' : 'Unknown'} />
@@ -250,9 +266,9 @@ export function LeadDetailSheet({
 
             {/* Actions */}
             <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {lead.campaign === 'need_to_call' && (
+              {canProgress && (
                 <button
-                  onClick={() => setOutreachConfirmOpen(true)}
+                  onClick={() => setProgressConfirmOpen(true)}
                   style={{
                     padding: '10px 16px', borderRadius: 8,
                     background: '#7C3AED', color: 'white', border: 'none',
@@ -264,7 +280,7 @@ export function LeadDetailSheet({
                   onMouseLeave={(e) => (e.currentTarget.style.background = '#7C3AED')}
                 >
                   <Zap style={{ width: 14, height: 14 }} />
-                  Move to Ivy Outreach
+                  Move to {nextStageLabel}
                 </button>
               )}
               {lead.phone && (
@@ -303,23 +319,23 @@ export function LeadDetailSheet({
         </SheetContent>
       </Sheet>
 
-      {/* Move to Ivy Outreach confirmation */}
-      <Dialog open={outreachConfirmOpen} onOpenChange={setOutreachConfirmOpen}>
+      {/* Stage progression confirmation */}
+      <Dialog open={progressConfirmOpen} onOpenChange={setProgressConfirmOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="size-5 text-amber-500" />
-              Move to Ivy Outreach?
+              Move to {nextStageLabel}?
             </DialogTitle>
             <DialogDescription>
               This will move <strong>{[lead.first_name, lead.last_name].filter(Boolean).join(' ') || 'this lead'}</strong> from{' '}
-              <strong>Awaiting Contact</strong> to the <strong>Ivy Outreach</strong> campaign and trigger automated outreach via Ivy.
+              <strong>{STAGE_LABELS[currentCalls] ?? 'current stage'}</strong> to <strong>{nextStageLabel}</strong>.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
             <button
-              onClick={() => setOutreachConfirmOpen(false)}
-              disabled={updatingOutreach}
+              onClick={() => setProgressConfirmOpen(false)}
+              disabled={progressing}
               style={{
                 padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 500,
                 background: 'white', color: '#1a1a1a', border: '1px solid #e0e6ed',
@@ -329,17 +345,17 @@ export function LeadDetailSheet({
               Cancel
             </button>
             <button
-              onClick={handleStartOutreach}
-              disabled={updatingOutreach}
+              onClick={handleProgressStage}
+              disabled={progressing}
               style={{
                 padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 500,
-                background: updatingOutreach ? '#9D71F0' : '#7C3AED', color: 'white', border: 'none',
-                cursor: updatingOutreach ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+                background: progressing ? '#9D71F0' : '#7C3AED', color: 'white', border: 'none',
+                cursor: progressing ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
                 display: 'flex', alignItems: 'center', gap: 6,
               }}
             >
-              {updatingOutreach
-                ? <><Loader2 style={{ width: 13, height: 13 }} className="animate-spin" /> Starting…</>
+              {progressing
+                ? <><Loader2 style={{ width: 13, height: 13 }} className="animate-spin" /> Moving…</>
                 : <><Zap style={{ width: 13, height: 13 }} /> Confirm</>
               }
             </button>

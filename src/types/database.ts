@@ -32,6 +32,7 @@ export interface Database {
           calendly_identifier: string | null
           call_scheduled_at: string | null
           meeting_link: string | null
+          number_of_calls: number | null
         }
         Insert: {
           id?: string
@@ -55,6 +56,7 @@ export interface Database {
           calendly_identifier?: string | null
           call_scheduled_at?: string | null
           meeting_link?: string | null
+          number_of_calls?: number | null
         }
         Update: {
           id?: string
@@ -78,6 +80,7 @@ export interface Database {
           calendly_identifier?: string | null
           call_scheduled_at?: string | null
           meeting_link?: string | null
+          number_of_calls?: number | null
         }
       }
       conversations: {
@@ -280,6 +283,7 @@ export interface Campaign {
   name: string
   label: string
   colour: string
+  filter?: (lead: Lead) => boolean
 }
 
 export const CAMPAIGN_CONFIG: Record<string, { label: string; colour: string }> = {
@@ -293,10 +297,28 @@ export const CAMPAIGN_CONFIG: Record<string, { label: string; colour: string }> 
 }
 
 export const CAMPAIGNS: Campaign[] = [
-  { name: 'need_to_call',   label: 'Awaiting Contact',    colour: '#3b82f6' },
-  { name: 'welcome',        label: 'Ivy Outreach',          colour: '#10b981' },
-  { name: 'not_right_now',  label: 'Not Right Now',    colour: '#6b7280' },
-  { name: 'reactivation',   label: 'Follow Up',     colour: '#ef4444' },
+  {
+    name: 'welcome_ntc', label: 'Awaiting Contact', colour: '#3b82f6',
+    filter: (l: Lead) => l.campaign === 'welcome' && (l.number_of_calls ?? 0) === 0,
+  },
+  {
+    name: 'welcome_cna1', label: 'Call Not Answered - 1', colour: '#f97316',
+    filter: (l: Lead) => l.campaign === 'welcome' && (l.number_of_calls ?? 0) === 1,
+  },
+  {
+    name: 'welcome_cna2', label: 'Call Not Answered - 2', colour: '#f59e0b',
+    filter: (l: Lead) => l.campaign === 'welcome' && (l.number_of_calls ?? 0) === 2,
+  },
+  {
+    name: 'welcome_cna3', label: 'Call Not Answered - 3', colour: '#ef4444',
+    filter: (l: Lead) => l.campaign === 'welcome' && (l.number_of_calls ?? 0) === 3,
+  },
+  {
+    name: 'welcome', label: 'Ivy Outreach', colour: '#10b981',
+    filter: (l: Lead) => l.campaign === 'welcome' && (l.number_of_calls ?? 0) >= 4,
+  },
+  { name: 'not_right_now', label: 'Not Right Now', colour: '#6b7280' },
+  { name: 'reactivation',  label: 'Follow Up',     colour: '#ef4444' },
 ]
 
 export const PRECALL_CAMPAIGNS: Campaign[] = [
