@@ -218,3 +218,17 @@ body {
 .group\/title:hover .group-hover\/title\:animate-marquee-scroll {
   animation: marquee-scroll 6s linear infinite;
 }
+
+/*
+ * Radix ScrollArea wraps its content in a `display: table; min-width: 100%`
+ * div, which grows to fit non-wrapping content instead of constraining it to
+ * the viewport width. That breaks text-overflow: ellipsis and lets the kanban
+ * lead cards overflow the column's right edge (the card "splits" and the right
+ * border gets clipped). Forcing the wrapper to a block makes the cards respect
+ * the column width and truncate cleanly. Scoped to the vertical card list only
+ * so the horizontal column scroller (which needs content wider than 100%) is
+ * unaffected.
+ */
+.kanban-cards-scroll [data-radix-scroll-area-viewport] > div {
+  display: block !important;
+}

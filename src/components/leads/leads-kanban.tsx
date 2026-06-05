@@ -112,8 +112,8 @@ function KanbanColumn({ status, leads, onLeadClick }: KanbanColumnProps) {
       </div>
 
       {/* Cards */}
-      <ScrollArea style={{ height: 'calc(100vh - 310px)' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingRight: 4 }}>
+      <ScrollArea className="kanban-cards-scroll" style={{ height: 'calc(100vh - 310px)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingRight: 8 }}>
           {leads.length === 0 ? (
             <p style={{ fontSize: 12, color: '#b0bec5', textAlign: 'center', padding: '20px 0' }}>
               No leads
@@ -147,8 +147,10 @@ function KanbanCard({ lead, onClick }: KanbanCardProps) {
         borderRadius: 10,
         padding: 12,
         cursor: 'pointer',
-        transition: 'all 0.2s',
+        transition: 'background 0.2s, border-color 0.2s',
         border: '1px solid transparent',
+        overflow: 'hidden',
+        minWidth: 0,
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.borderColor = '#0A8754'
@@ -160,7 +162,7 @@ function KanbanCard({ lead, onClick }: KanbanCardProps) {
       }}
     >
       {/* Avatar + name row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, minWidth: 0 }}>
         <div
           style={{
             width: 28,
@@ -193,7 +195,7 @@ function KanbanCard({ lead, onClick }: KanbanCardProps) {
         <div style={{ marginTop: 6 }}>
           <span
             style={{
-              display: 'inline-block',
+              display: 'block',
               padding: '2px 8px',
               borderRadius: 6,
               fontSize: 11,
@@ -201,7 +203,6 @@ function KanbanCard({ lead, onClick }: KanbanCardProps) {
               background: '#f5f7fa',
               color: '#5a7a8f',
               border: '1px solid #e0e6ed',
-              maxWidth: '100%',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
