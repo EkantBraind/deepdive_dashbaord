@@ -29,8 +29,8 @@ export function DashboardPage() {
   }
 
   const conversionRate =
-    stats.totalLeads > 0
-      ? Math.round((stats.bookedLeads / stats.totalLeads) * 100)
+    stats.ivyOutreachLeads > 0
+      ? Math.round((stats.bookedLeads / stats.ivyOutreachLeads) * 100)
       : 0
 
   return (

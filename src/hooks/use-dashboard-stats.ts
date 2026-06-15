@@ -11,6 +11,7 @@ export interface DashboardStats {
   totalLeads: number
   totalConversations: number
   bookedLeads: number
+  ivyOutreachLeads: number
   optedOutLeads: number
   leadsByCampaign: Record<string, number>
   leadsBySource: Record<string, number>
@@ -111,10 +112,15 @@ export function useDashboardStats({ dateRange }: UseDashboardStatsOptions = {}) 
     const todayEnd = new Date()
     todayEnd.setHours(23, 59, 59, 999)
 
+    const ivyOutreachLeads = leads.filter(
+      (l) => l.campaign === 'welcome' || l.campaign?.startsWith('pre_call')
+    )
+
     return {
       totalLeads: leads.length,
       totalConversations: conversationCount,
-      bookedLeads: leads.filter((l) => l.booked || l.campaign?.startsWith('pre_call')).length,
+      bookedLeads: ivyOutreachLeads.filter((l) => l.campaign?.startsWith('pre_call')).length,
+      ivyOutreachLeads: ivyOutreachLeads.length,
       optedOutLeads: leads.filter((l) => l.opted_out).length,
       leadsByCampaign,
       leadsBySource,
