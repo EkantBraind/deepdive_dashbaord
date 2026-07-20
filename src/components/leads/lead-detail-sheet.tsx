@@ -261,7 +261,7 @@ export function LeadDetailSheet({
                             {n.content}
                           </p>
                           <div style={{ marginTop: 5, fontSize: 10, color: '#c4aa3e', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                            <span>{format(new Date(n.created_at), 'h:mm a')}</span>
+                            <span>{londonTimeFmt.format(new Date(n.created_at))} (London)</span>
                             {n.author_email && <span>· {n.author_email}</span>}
                           </div>
                         </div>
@@ -523,13 +523,24 @@ export function LeadDetailSheet({
 
 // ─── Notes helpers ─────────────────────────────────────────────────────────────
 
+const LONDON_TZ = 'Europe/London'
+
+// Day label in London time, e.g. "Monday, Jul 20, 2026"
+const londonDayFmt = new Intl.DateTimeFormat('en-US', {
+  timeZone: LONDON_TZ, weekday: 'long', month: 'short', day: 'numeric', year: 'numeric',
+})
+// Time-of-day in London time, e.g. "3:05 PM"
+const londonTimeFmt = new Intl.DateTimeFormat('en-US', {
+  timeZone: LONDON_TZ, hour: 'numeric', minute: '2-digit', hour12: true,
+})
+
 // Groups notes (already sorted newest-first) into [dayLabel, notes[]] buckets,
-// preserving the newest-day-first order.
+// preserving the newest-day-first order. Days are bucketed in London time.
 function groupNotesByDay(notes: LeadNote[]): [string, LeadNote[]][] {
   const groups: Record<string, LeadNote[]> = {}
   const order: string[] = []
   for (const n of notes) {
-    const day = format(new Date(n.created_at), 'EEEE, MMM d, yyyy')
+    const day = londonDayFmt.format(new Date(n.created_at))
     if (!groups[day]) {
       groups[day] = []
       order.push(day)
