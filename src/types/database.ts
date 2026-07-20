@@ -86,6 +86,29 @@ export interface Database {
           notes?: string | null
         }
       }
+      lead_notes: {
+        Row: {
+          id: string
+          lead_id: string
+          content: string
+          author_email: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          lead_id: string
+          content: string
+          author_email?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          lead_id?: string
+          content?: string
+          author_email?: string | null
+          created_at?: string
+        }
+      }
       conversations: {
         Row: {
           id: number
@@ -281,6 +304,9 @@ export type LeadUpdate = Database['public']['Tables']['leads']['Update']
 export type LeadWithContact = Lead
 
 export type Conversation = Database['public']['Tables']['conversations']['Row']
+
+export type LeadNote = Database['public']['Tables']['lead_notes']['Row']
+export type LeadNoteInsert = Database['public']['Tables']['lead_notes']['Insert']
 
 export interface Campaign {
   name: string

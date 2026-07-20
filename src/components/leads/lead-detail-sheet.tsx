@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { format, formatDistanceToNow } from 'date-fns'
-import { Flag, ExternalLink, Loader2, CalendarCheck, Copy, Check, Zap, AlertTriangle, Phone, Link, StickyNote, Pencil, X } from 'lucide-react'
+import { Flag, ExternalLink, Loader2, CalendarCheck, Copy, Check, Zap, AlertTriangle, Phone, Link, StickyNote, Plus } from 'lucide-react'
 import {
   Sheet,
   SheetContent,
@@ -15,8 +15,10 @@ import {
 } from '@/components/ui/dialog'
 import { ConversationDialog } from './conversation-dialog'
 import { useLeadConversation } from '@/hooks/use-lead-conversation'
+import { useLeadNotes } from '@/hooks/use-lead-notes'
+import { useAuthContext } from '@/contexts/auth-context'
 import { supabase } from '@/lib/supabase'
-import type { Lead, Campaign, Conversation, ConversationMessage } from '@/types/database'
+import type { Lead, Campaign, Conversation, ConversationMessage, LeadNote } from '@/types/database'
 
 const AVATAR_COLORS = ['#0A8754', '#3B82F6', '#F59E0B', '#8B5CF6', '#0EAD6A', '#F44336']
 
@@ -47,9 +49,11 @@ export function LeadDetailSheet({
   const [copied, setCopied] = useState(false)
   const [progressConfirmOpen, setProgressConfirmOpen] = useState(false)
   const [progressing, setProgressing] = useState(false)
-  const [noteEditing, setNoteEditing] = useState(false)
   const [noteDraft, setNoteDraft] = useState('')
   const [noteSaving, setNoteSaving] = useState(false)
+
+  const { user } = useAuthContext()
+  const { notes, loading: notesLoading, addNote } = useLeadNotes(lead?.id ?? null, open)
 
   const handleCopyCalendly = (url: string) => {
     navigator.clipboard.writeText(url)
@@ -101,21 +105,23 @@ export function LeadDetailSheet({
     if (!open) {
       reset()
       setFullConvOpen(false)
-      setNoteEditing(false)
     }
     if (open) {
-      setNoteDraft(lead?.notes ?? '')
-      setNoteEditing(false)
+      setNoteDraft('')
     }
   }, [open, lead?.id, lead?.phone])   // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleSaveNote = async () => {
-    if (!lead) return
+  const handleAddNote = async () => {
+    if (!lead || !noteDraft.trim()) return
     setNoteSaving(true)
-    await supabase.from('leads').update({ notes: noteDraft || null }).eq('id', lead.id)
-    lead.notes = noteDraft || null
-    setNoteSaving(false)
-    setNoteEditing(false)
+    try {
+      await addNote(noteDraft, user?.email ?? null)
+      setNoteDraft('')
+    } catch (err) {
+      console.error('Failed to add note:', err)
+    } finally {
+      setNoteSaving(false)
+    }
   }
 
   if (!lead) return null
@@ -126,6 +132,7 @@ export function LeadDetailSheet({
   const name = [lead.first_name, lead.last_name].filter(Boolean).join(' ') || 'Unknown'
   const avatarColor = getAvatarColor(name)
   const initials = getInitials(name)
+  const groupedNotes = groupNotesByDay(notes)
 
   return (
     <>
@@ -174,88 +181,100 @@ export function LeadDetailSheet({
                 {lead.first_name || 'Lead'}
               </span>
             </div>
-            <div style={{ padding: '12px 14px', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {noteEditing ? (
-                <>
-                  <textarea
-                    autoFocus
-                    value={noteDraft}
-                    onChange={(e) => setNoteDraft(e.target.value)}
-                    rows={5}
-                    style={{
-                      width: '100%',
-                      padding: '7px 9px',
-                      fontSize: 13,
-                      borderRadius: 7,
-                      border: '1px solid #c4aa3e',
-                      outline: 'none',
-                      resize: 'vertical',
-                      fontFamily: 'inherit',
-                      color: '#1a1a1a',
-                      lineHeight: 1.6,
-                      background: '#fffef5',
-                    }}
-                    placeholder="Write a note about this lead…"
-                  />
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button
-                      onClick={handleSaveNote}
-                      disabled={noteSaving}
-                      style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 5,
-                        padding: '5px 13px', borderRadius: 6, fontSize: 12, fontWeight: 500,
-                        background: '#0A8754', color: 'white', border: 'none',
-                        cursor: noteSaving ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
-                      }}
-                    >
-                      {noteSaving
-                        ? <><Loader2 style={{ width: 11, height: 11 }} className="animate-spin" /> Saving…</>
-                        : <><Check style={{ width: 11, height: 11 }} /> Save</>}
-                    </button>
-                    <button
-                      onClick={() => { setNoteDraft(lead.notes ?? ''); setNoteEditing(false) }}
-                      style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 5,
-                        padding: '5px 11px', borderRadius: 6, fontSize: 12, fontWeight: 500,
-                        background: 'transparent', color: '#7a8fa0', border: '1px solid #d8d0a8',
-                        cursor: 'pointer', fontFamily: 'inherit',
-                      }}
-                    >
-                      <X style={{ width: 11, height: 11 }} /> Cancel
-                    </button>
+            <div style={{ padding: '12px 14px', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {/* Legacy note — read-only, no longer editable */}
+              {lead.notes && (
+                <div style={{
+                  background: '#fdf8e3',
+                  border: '1px solid #e8e0c0',
+                  borderRadius: 8,
+                  padding: '9px 11px',
+                }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: '#b5900a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 5 }}>
+                    Original note
                   </div>
-                </>
-              ) : lead.notes ? (
-                <>
-                  <p style={{ margin: 0, fontSize: 13, color: '#2a2010', lineHeight: 1.65, whiteSpace: 'pre-wrap', flex: 1 }}>
+                  <p style={{ margin: 0, fontSize: 13, color: '#2a2010', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
                     {lead.notes}
                   </p>
-                  <button
-                    onClick={() => { setNoteDraft(lead.notes ?? ''); setNoteEditing(true) }}
-                    style={{
-                      alignSelf: 'flex-start',
-                      display: 'inline-flex', alignItems: 'center', gap: 5,
-                      padding: '5px 11px', borderRadius: 6, fontSize: 12, fontWeight: 500,
-                      background: 'transparent', color: '#7a8fa0', border: '1px solid #d8d0a8',
-                      cursor: 'pointer', fontFamily: 'inherit',
-                    }}
-                  >
-                    <Pencil style={{ width: 11, height: 11 }} /> Edit
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={() => setNoteEditing(true)}
+                </div>
+              )}
+
+              {/* Composer — new notes are added here */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <textarea
+                  value={noteDraft}
+                  onChange={(e) => setNoteDraft(e.target.value)}
+                  rows={3}
                   style={{
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                    padding: '9px 14px', borderRadius: 8, fontSize: 13, fontWeight: 500,
-                    background: 'transparent', color: '#b5900a', border: '1.5px dashed #c4aa3e',
-                    cursor: 'pointer', fontFamily: 'inherit', width: '100%',
+                    width: '100%',
+                    padding: '7px 9px',
+                    fontSize: 13,
+                    borderRadius: 7,
+                    border: '1px solid #c4aa3e',
+                    outline: 'none',
+                    resize: 'vertical',
+                    fontFamily: 'inherit',
+                    color: '#1a1a1a',
+                    lineHeight: 1.6,
+                    background: '#fffef5',
+                  }}
+                  placeholder="Add a new note…"
+                />
+                <button
+                  onClick={handleAddNote}
+                  disabled={noteSaving || !noteDraft.trim()}
+                  style={{
+                    alignSelf: 'flex-start',
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    padding: '5px 13px', borderRadius: 6, fontSize: 12, fontWeight: 500,
+                    background: noteSaving || !noteDraft.trim() ? '#9dcbb5' : '#0A8754',
+                    color: 'white', border: 'none',
+                    cursor: noteSaving || !noteDraft.trim() ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
                   }}
                 >
-                  <StickyNote style={{ width: 13, height: 13 }} />
-                  Add a note
+                  {noteSaving
+                    ? <><Loader2 style={{ width: 11, height: 11 }} className="animate-spin" /> Adding…</>
+                    : <><Plus style={{ width: 12, height: 12 }} /> Add note</>}
                 </button>
+              </div>
+
+              {/* Date-wise list of notes (newest first) */}
+              {notesLoading ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0' }}>
+                  <Loader2 style={{ width: 15, height: 15, color: '#b5900a' }} className="animate-spin" />
+                </div>
+              ) : groupedNotes.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, borderTop: '1px solid #e8e0c0', paddingTop: 12 }}>
+                  {groupedNotes.map(([day, dayNotes]) => (
+                    <div key={day} style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: '#b5900a', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        {day}
+                      </div>
+                      {dayNotes.map((n) => (
+                        <div key={n.id} style={{
+                          background: '#fffef5',
+                          border: '1px solid #ece3bf',
+                          borderRadius: 8,
+                          padding: '8px 10px',
+                        }}>
+                          <p style={{ margin: 0, fontSize: 13, color: '#2a2010', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                            {n.content}
+                          </p>
+                          <div style={{ marginTop: 5, fontSize: 10, color: '#c4aa3e', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            <span>{format(new Date(n.created_at), 'h:mm a')}</span>
+                            {n.author_email && <span>· {n.author_email}</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                !lead.notes && (
+                  <p style={{ margin: 0, fontSize: 12, color: '#c4aa3e', fontStyle: 'italic', textAlign: 'center', padding: '4px 0' }}>
+                    No notes yet
+                  </p>
+                )
               )}
             </div>
           </div>
@@ -500,6 +519,24 @@ export function LeadDetailSheet({
 
     </>
   )
+}
+
+// ─── Notes helpers ─────────────────────────────────────────────────────────────
+
+// Groups notes (already sorted newest-first) into [dayLabel, notes[]] buckets,
+// preserving the newest-day-first order.
+function groupNotesByDay(notes: LeadNote[]): [string, LeadNote[]][] {
+  const groups: Record<string, LeadNote[]> = {}
+  const order: string[] = []
+  for (const n of notes) {
+    const day = format(new Date(n.created_at), 'EEEE, MMM d, yyyy')
+    if (!groups[day]) {
+      groups[day] = []
+      order.push(day)
+    }
+    groups[day].push(n)
+  }
+  return order.map((day) => [day, groups[day]])
 }
 
 // ─── Conversation Preview (WhatsApp-style inline) ──────────────────────────────

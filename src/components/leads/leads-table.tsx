@@ -1,6 +1,5 @@
-import { useState } from 'react'
 import { format } from 'date-fns'
-import { Users, StickyNote, Check, X, Loader2, Pencil } from 'lucide-react'
+import { Users } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -12,7 +11,6 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { supabase } from '@/lib/supabase'
 import type { Lead, Campaign } from '@/types/database'
 
 interface LeadsTableProps {
@@ -22,119 +20,21 @@ interface LeadsTableProps {
   onLeadClick?: (lead: Lead) => void
 }
 
+// Read-only notes cell. The legacy `notes` column still shows here, but new
+// notes are no longer added from the table — they're managed in the lead detail
+// panel. Clicking the row opens that panel.
 function NoteCell({ lead }: { lead: Lead }) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(lead.notes ?? '')
-  const [saving, setSaving] = useState(false)
-
-  const save = async (e: React.MouseEvent) => {
-    e.stopPropagation()
-    setSaving(true)
-    await supabase.from('leads').update({ notes: draft || null }).eq('id', lead.id)
-    setSaving(false)
-    setEditing(false)
-    lead.notes = draft || null
-  }
-
-  const cancel = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    setDraft(lead.notes ?? '')
-    setEditing(false)
-  }
-
-  if (editing) {
-    return (
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 200 }}
-      >
-        <textarea
-          autoFocus
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          rows={3}
-          style={{
-            width: '100%',
-            padding: '6px 8px',
-            fontSize: 12,
-            borderRadius: 6,
-            border: '1px solid #0A8754',
-            outline: 'none',
-            resize: 'vertical',
-            fontFamily: 'inherit',
-            color: '#1a1a1a',
-          }}
-          placeholder="Add a note…"
-        />
-        <div style={{ display: 'flex', gap: 4 }}>
-          <button
-            onClick={save}
-            disabled={saving}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-              padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 500,
-              background: '#0A8754', color: 'white', border: 'none',
-              cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
-            }}
-          >
-            {saving ? <Loader2 style={{ width: 11, height: 11 }} className="animate-spin" /> : <Check style={{ width: 11, height: 11 }} />}
-            Save
-          </button>
-          <button
-            onClick={cancel}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-              padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 500,
-              background: 'white', color: '#7a8fa0', border: '1px solid #e0e6ed',
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}
-          >
-            <X style={{ width: 11, height: 11 }} />
-            Cancel
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   if (lead.notes) {
     return (
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{ display: 'flex', alignItems: 'flex-start', gap: 6, maxWidth: 220 }}
-      >
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, maxWidth: 220 }}>
         <span style={{ fontSize: 12, color: '#1a1a1a', lineHeight: 1.5, flex: 1, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
           {lead.notes}
         </span>
-        <button
-          onClick={(e) => { e.stopPropagation(); setDraft(lead.notes ?? ''); setEditing(true) }}
-          title="Edit note"
-          style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            width: 22, height: 22, borderRadius: 5, border: '1px solid #e0e6ed',
-            background: 'white', color: '#7a8fa0', cursor: 'pointer', flexShrink: 0,
-          }}
-        >
-          <Pencil style={{ width: 11, height: 11 }} />
-        </button>
       </div>
     )
   }
 
-  return (
-    <button
-      onClick={(e) => { e.stopPropagation(); setEditing(true) }}
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: 5,
-        padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 500,
-        background: 'white', color: '#7a8fa0', border: '1px solid #e0e6ed',
-        cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
-      }}
-    >
-      <StickyNote style={{ width: 11, height: 11 }} />
-      Add Note
-    </button>
-  )
+  return <span className="text-muted-foreground">—</span>
 }
 
 export function LeadsTable({ leads, statuses, loading, onLeadClick }: LeadsTableProps) {
@@ -256,7 +156,7 @@ export function LeadsTable({ leads, statuses, loading, onLeadClick }: LeadsTable
                       ? format(new Date(lead.created_at), 'MMM d, yyyy')
                       : '—'}
                   </TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
+                  <TableCell>
                     <NoteCell lead={lead} />
                   </TableCell>
                 </TableRow>
